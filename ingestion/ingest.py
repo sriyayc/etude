@@ -23,13 +23,19 @@ def chunking(text, chunk_size = 500, overlap = 50):
         chunks.append(chunk)
     return chunks
 
-if __name__ == "__main__":
-    text = extract("data/textbooks/python_notes.pdf")
+def ingest_pdf(pdf_path):
+    print(f"Ingesting PDF: {pdf_path}")
+    text = extract(pdf_path)
     chunks = chunking(text)
-   
-    print(f"Total chunks created: {len(chunks)}")
-    print(f"\nFirst chunk preview:")
-    print(chunks[0][:300])
-    print(f"\n...")
-    print(f"\nLast chunk preview:")
-    print(chunks[-1][:300])
+    for i, chunk in enumerate(chunks):
+        embedding = embedder.encode(chunk).tolist() #converts NumPy array to python list
+        collection.add(
+            documents=[chunk],
+            embeddings=[embedding],
+            ids=[f"{os.path.basename(pdf_path)}_chunk_{i}"]
+        )
+    print(f"Total chunks created: {len(chunks)} chunks added to chromadb")
+
+
+if __name__ == "__main__":
+    ingest_pdf("data/textbooks/python_notes.pdf")
