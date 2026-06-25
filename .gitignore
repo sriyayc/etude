@@ -3,11 +3,19 @@ venv/
 __pycache__/
 *.pyc
 
-# ChromaDB
-chroma_db/
-
-# Environment
+# Environment & secrets
 .env
+keys_temp.txt
+
+# Local data & cache
+*.cache
+*.pkl
+*.tmp
+cache/
+embeddings_cache/
+
+# Logs
+*.log
 
 # IDE
 .vscode/
@@ -16,7 +24,3 @@ chroma_db/
 # OS
 .DS_Store
 Thumbs.db
-
-# Model weights
-*.bin
-*.safetensors
