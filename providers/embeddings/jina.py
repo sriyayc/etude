@@ -38,13 +38,3 @@ class JinaEmbedder(EmbeddingProvider):
     def model_name(self) -> str:
         return self.MODEL
     
-if __name__ == "__main__":
-    embedder = JinaEmbedder()
-    test_texts = ["Data structures store data efficiently."]
-    vectors = embedder.embed(test_texts)
-    
-    print(f"Model: {embedder.model_name}")
-    print(f"Dimension: {embedder.dimension}")
-    print(f"Number of vectors returned: {len(vectors)}")
-    print(f"First vector length: {len(vectors[0])}")
-    print(f"First 5 values: {vectors[0][:5]}")
