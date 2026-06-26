@@ -16,6 +16,7 @@ QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+TEACHER_INVITE_TOKEN = os.getenv("TEACHER_INVITE_TOKEN")
 
 # Sanity check
 def verify_config():
@@ -26,6 +27,7 @@ def verify_config():
         "QDRANT_API_KEY": QDRANT_API_KEY,
         "SUPABASE_URL": SUPABASE_URL,
         "SUPABASE_KEY": SUPABASE_KEY,
+        "TEACHER_INVITE_TOKEN": TEACHER_INVITE_TOKEN,
     }
     missing = [k for k, v in required.items() if not v]
     if missing:

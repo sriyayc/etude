@@ -11,11 +11,12 @@ if not config.SUPABASE_KEY:
     raise ValueError("SUPABASE_KEY not set")
 
 
-supabase: Client = create_client(
+client: Client = create_client(
     config.SUPABASE_URL,
     config.SUPABASE_KEY,
 )
 
 
+
 def get_client() -> Client:
-    return supabase
+    return client
