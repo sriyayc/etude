@@ -19,16 +19,20 @@ class JinaEmbedder(EmbeddingProvider):
             "Content-Type": "application/json"
         }
     
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        payload = {
-            "model": self.MODEL,
-            "task": "retrieval.passage",
-            "input": texts
-        }
-        response = requests.post(self.API_URL, headers=self.headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        return [item["embedding"] for item in data["data"]]
+    def embed(self, texts: list[str], task: str = "retrieval.passage", batch_size: int = 64) -> list[list[float]]:
+        all_embeddings = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            payload = {
+                "model": self.MODEL,
+                "task": task,
+                "input": batch
+            }
+            response = requests.post(self.API_URL, headers=self.headers, json=payload, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            all_embeddings.extend([item["embedding"] for item in data["data"]])
+        return all_embeddings
     
     @property
     def dimension(self) -> int:
@@ -37,4 +41,3 @@ class JinaEmbedder(EmbeddingProvider):
     @property
     def model_name(self) -> str:
         return self.MODEL
-    
