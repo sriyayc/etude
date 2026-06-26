@@ -10,6 +10,7 @@ VECTORSTORE_PROVIDER = os.getenv("VECTORSTORE_PROVIDER", "qdrant")
 
 # API keys
 JINA_API_KEY = os.getenv("JINA_API_KEY")
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
