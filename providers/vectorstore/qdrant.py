@@ -27,12 +27,41 @@ class QdrantStore(VectorStoreProvider):
         existing = [c.name for c in self.client.get_collections().collections]
         if self.COLLECTION not in existing:
             self.client.create_collection(
-                collection_name=self.COLLECTION,
-                vectors_config=VectorParams(
-                    size=self.dimension,
-                    distance=Distance.COSINE
-                )
+               collection_name=self.COLLECTION,
+               vectors_config=VectorParams(
+                  size=self.dimension,
+                  distance=Distance.COSINE
             )
+        )
+    
+    # Create payload indexes for filtering
+        self._ensure_payload_indexes()
+
+
+    def _ensure_payload_indexes(self) -> None:
+        """Create indexes on metadata fields used for filtering."""
+        indexed_fields = [
+            "content_hash",
+            "document_id",
+            "subject",
+            "semester",
+            "topic",
+            "unit_number",
+            "is_current",
+            "source_file",
+            "document_type",
+            "version",
+         ]
+    
+        for field in indexed_fields:
+            try:
+                 self.client.create_payload_index(
+                     collection_name=self.COLLECTION,
+                     field_name=field,
+                     field_schema="keyword"
+            )
+            except Exception:
+                 pass
 
     def upsert(
         self,

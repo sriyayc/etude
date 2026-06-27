@@ -1,6 +1,6 @@
 import fitz
 
-def extract(pdf_path: str) -> list[dict]:
+def extract_pages(pdf_path: str) -> list[dict]:
     """ extracting from the pdf using fitz and paging them"""
     doc = fitz.open(pdf_path)  # PyMuPDF
     pages= [] 
