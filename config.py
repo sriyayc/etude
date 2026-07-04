@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 # Provider selection
@@ -17,6 +16,9 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TEACHER_INVITE_TOKEN = os.getenv("TEACHER_INVITE_TOKEN")
+
+# Feature flags
+USE_RERANKER = os.getenv("USE_RERANKER", "false").lower() == "true"
 
 # Sanity check
 def verify_config():

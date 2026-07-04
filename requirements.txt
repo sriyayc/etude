@@ -1,0 +1,8 @@
+groq
+requests
+qdrant-client
+pymupdf
+supabase
+streamlit
+python-dotenv
+# sentence-transformers  (uncomment on Railway for reranking)
