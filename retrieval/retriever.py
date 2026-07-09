@@ -38,6 +38,7 @@ def retrieve(
     expand_query: bool = True,
     expand_context: bool = True,
     score_threshold: float = 0.65,
+    stale_override: bool = False,
 ) -> list[dict]:
     """
     Full retrieval pipeline from raw question to clean chunk list.
@@ -80,7 +81,7 @@ def retrieve(
     _log(f"Query classified → n={n}, pool={candidate_pool}")
 
     # Step 2 — Build metadata filters
-    filters = _build_filters(subject, semester)
+    filters = _build_filters(subject, semester, stale_override)
 
     # Step 3 — Query expansion
     queries = [query]
@@ -172,12 +173,16 @@ def _classify_query(query: str) -> tuple[int, int]:
 #  Filter builder                                                      #
 # ------------------------------------------------------------------ #
 
-def _build_filters(subject: str = None, semester: int = None) -> dict:
-    """
-    Always filter is_current=True to prevent stale content surfacing.
-    Optionally scope to subject and/or semester.
-    """
-    filters = {"is_current": True}
+def _build_filters(
+    subject: str = None,
+    semester: int = None,
+    stale_override: bool = False,
+) -> dict:
+    filters = {}
+    if not stale_override:
+        filters["is_current"] = True   # normal retrieval — current only
+    else:
+        filters["is_current"] = False  # stale retrieval — removed topics only
     if subject:
         filters["subject"] = subject
     if semester:
