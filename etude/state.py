@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from services import auth_service
+from services import auth_service, document_service
 from db import stats_repo
 
 
@@ -37,6 +37,13 @@ class UserState(rx.State):
     login_error: str = ""
     login_loading: bool = False
 
+    # ---- teacher upload form fields ----
+    upload_title: str = ""
+    upload_document_type: str = "textbook"
+    upload_error: str = ""
+    upload_success: bool = False
+    upload_loading: bool = False
+
     @property
     def is_logged_in(self) -> bool:
         return bool(self.user_id)
@@ -60,6 +67,13 @@ class UserState(rx.State):
 
     def set_login_password(self, value: str):
         self.login_password = value
+
+    # ---- upload field setters ----
+    def set_upload_title(self, value: str):
+        self.upload_title = value
+
+    def set_upload_document_type(self, value: str):
+        self.upload_document_type = value
 
     # ---- actions ----
     def handle_signup(self):
@@ -150,3 +164,48 @@ class UserState(rx.State):
         self.streak = stats_repo.get_user_streak(self.user_id)
         self.subjects_active = stats_repo.get_subjects_active(self.user_id)
         self.leaderboard_rows = stats_repo.get_leaderboard(limit=20)
+
+    def require_teacher_role(self):
+        """Chain after load_profile in on_load for teacher-only routes."""
+        if self.role != "teacher":
+            return rx.redirect("/dashboard")
+
+    async def handle_upload(self, files: list[rx.UploadFile]):
+        self.upload_error = ""
+        self.upload_success = False
+
+        if self.role != "teacher":
+            yield rx.redirect("/dashboard")
+            return
+
+        if not self.upload_title:
+            self.upload_error = "Give the document a title."
+            return
+
+        if not files:
+            self.upload_error = "Choose a file first."
+            return
+
+        self.upload_loading = True
+        yield
+
+        try:
+            for file in files:
+                data = await file.read()
+                dest = rx.get_upload_dir() / file.filename
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(data)
+
+                document_service.upload_document(
+                    file_path=str(dest),
+                    title=self.upload_title,
+                    document_type=self.upload_document_type,
+                )
+        except Exception as e:
+            self.upload_loading = False
+            self.upload_error = str(e)
+            return
+
+        self.upload_loading = False
+        self.upload_success = True
+        self.upload_title = ""
