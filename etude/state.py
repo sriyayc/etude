@@ -1,9 +1,115 @@
 """Application state."""
 
 import reflex as rx
+import asyncio
 
 from services import auth_service, document_service
-from db import stats_repo
+from db import stats_repo, subjects_repo 
+
+
+import reflex as rx
+
+
+class ResourceState(rx.State):
+    chat_input: str = ""
+    chat_messages: list[dict[str, str]] = []
+    ai_thinking: bool = False
+
+    slides: list[dict] = []
+    current_slide_index: int = 0
+
+    @rx.var
+    def semester(self) -> str:
+        """Current semester route parameter."""
+
+        return (
+            self.router.page.params.get(
+                "semester",
+                "1",
+            )
+            or "1"
+        )
+
+    @rx.var
+    def subject_code(self) -> str:
+        """Current subject-code route parameter."""
+
+        return (
+            self.router.page.params.get(
+                "subject_code",
+                "",
+            )
+            or ""
+        )
+
+    @rx.var
+    def quiz_url(self) -> str:
+        """Quiz route for the current subject."""
+
+        return (
+            f"/resources/{self.semester}/"
+            f"{self.subject_code}/quiz"
+        )
+
+    @rx.event
+    def set_chat_input(self, value: str):
+        """Update the AI chat input."""
+
+        self.chat_input = value
+
+    @rx.event
+    def ask_ai(
+        self,
+        preset_question: str = "",
+    ):
+        """Ask about the current slide."""
+
+        question = (
+            preset_question.strip()
+            or self.chat_input.strip()
+        )
+
+        if not question:
+            return
+
+        self.chat_messages.append(
+            {
+                "role": "user",
+                "content": question,
+            }
+        )
+
+        self.chat_input = ""
+        self.ai_thinking = True
+
+        try:
+            # Replace this temporary response with your
+            # QA/service-layer call later.
+            response = (
+                "AI integration is not connected yet. "
+                "Your question was: "
+                f"{question}"
+            )
+
+            self.chat_messages.append(
+                {
+                    "role": "assistant",
+                    "content": response,
+                }
+            )
+
+        except Exception:
+            self.chat_messages.append(
+                {
+                    "role": "assistant",
+                    "content": (
+                        "I could not process that question."
+                    ),
+                }
+            )
+
+        finally:
+            self.ai_thinking = False
 
 
 class UserState(rx.State):
@@ -44,7 +150,8 @@ class UserState(rx.State):
     upload_success: bool = False
     upload_loading: bool = False
 
-    @property
+    # FIX: Changed from standard @property to @rx.var
+    @rx.var
     def is_logged_in(self) -> bool:
         return bool(self.user_id)
 
@@ -76,7 +183,7 @@ class UserState(rx.State):
         self.upload_document_type = value
 
     # ---- actions ----
-    def handle_signup(self):
+    async def handle_signup(self):
         self.signup_error = ""
 
         if not all([
@@ -88,12 +195,8 @@ class UserState(rx.State):
             return
 
         self.signup_loading = True
-        yield
+        await asyncio.sleep(0.01)
 
-        # No visible email field in the UI (matches the reference design) —
-        # Supabase Auth still needs *some* email under the hood, so we
-        # derive a stable one from the SRN. Not shown to the user, not
-        # used for anything except satisfying Supabase Auth's requirement.
         derived_email = f"{self.signup_srn.strip().lower()}@etude.local"
 
         try:
@@ -111,7 +214,7 @@ class UserState(rx.State):
         self.signup_loading = False
         return rx.redirect("/login")
 
-    def handle_login(self):
+    async def handle_login(self):
         self.login_error = ""
 
         if not self.login_srn or not self.login_password:
@@ -119,7 +222,7 @@ class UserState(rx.State):
             return
 
         self.login_loading = True
-        yield
+        await asyncio.sleep(0.01)
 
         try:
             result = auth_service.login(
@@ -146,8 +249,7 @@ class UserState(rx.State):
         return rx.redirect("/login")
 
     def load_profile(self):
-        """Call this in on_load for /dashboard, /leaderboard, /profile.
-        Restores the session and (re)loads stats for whoever's logged in."""
+        """Call this in on_load for /dashboard, /leaderboard, /profile."""
         try:
             user = auth_service.get_current_user()
         except Exception:
@@ -175,8 +277,7 @@ class UserState(rx.State):
         self.upload_success = False
 
         if self.role != "teacher":
-            yield rx.redirect("/dashboard")
-            return
+            return rx.redirect("/dashboard")
 
         if not self.upload_title:
             self.upload_error = "Give the document a title."
@@ -187,7 +288,7 @@ class UserState(rx.State):
             return
 
         self.upload_loading = True
-        yield
+        await asyncio.sleep(0.01)
 
         try:
             for file in files:
