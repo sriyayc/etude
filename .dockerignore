@@ -1,0 +1,17 @@
+venv/
+.web/
+__pycache__/
+*.py[cod]
+.git/
+.env
+.env.example
+data/
+assets/external/
+*.cache
+*.pkl
+*.tmp
+cache/
+embeddings_cache/
+*.log
+.vscode/
+.idea/

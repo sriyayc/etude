@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 groq
 requests
 qdrant-client
@@ -6,3 +7,28 @@ supabase
 streamlit
 python-dotenv
 # sentence-transformers  (uncomment on Railway for reranking)
+=======
+reflex==0.9.6.post1
+
+# Supabase (auth, db, storage)
+supabase==2.31.0
+
+# LLM / embeddings providers
+groq==1.5.0
+requests==2.34.2
+
+# Vector store (config.py defaults VECTORSTORE_PROVIDER to this)
+qdrant-client==1.18.0
+
+# Ingestion
+PyMuPDF==1.27.2.3
+# NOTE: ingestion/ingest.py imports chromadb + sentence_transformers directly,
+# bypassing the qdrant/jina provider abstraction used elsewhere. Neither
+# package is installed, and this conflicts with the qdrant-based config
+# above — needs a decision on which vector store the ingestion pipeline
+# should actually target before installing these.
+# chromadb
+# sentence-transformers
+
+python-dotenv==1.2.2
+>>>>>>> feature/supabase-integration
