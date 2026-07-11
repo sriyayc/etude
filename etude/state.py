@@ -4,6 +4,97 @@ import reflex as rx
 
 from services import auth_service
 from db import stats_repo
+from db import subjects_repo
+
+
+class ResourceState(rx.State):
+    """Backs /resources/[semester], /resources/[semester]/[subject_code],
+    and the slide viewer — all driven by the URL, via Reflex dynamic routes."""
+
+    subjects: list[dict] = []
+    current_subject: dict = {}
+    slides: list[dict] = []
+    current_slide_index: int = 0
+    filter_status: str = "all"
+
+    def set_filter(self, value: str):
+        self.filter_status = value
+
+    @rx.var
+    def filtered_subjects(self) -> list[dict]:
+        if self.filter_status == "all":
+            return self.subjects
+        if self.filter_status == "current":
+            return [s for s in self.subjects if s.get("syllabus_status") == "current"]
+        return [s for s in self.subjects if s.get("syllabus_status") == "stale"]
+
+    def load_subjects(self):
+        semester = int(self.router.page.params.get("semester", 1))
+        self.subjects = subjects_repo.list_subjects_by_semester(semester)
+
+    def load_subject(self):
+        semester = int(self.router.page.params.get("semester", 1))
+        subject_code = self.router.page.params.get("subject_code", "")
+        self.current_subject = subjects_repo.get_subject(semester, subject_code) or {}
+
+    def load_slides(self):
+        self.load_subject()
+        doc_id = self.current_subject.get("slides_document_id")
+        if doc_id:
+            self.slides = subjects_repo.list_slides(doc_id)
+        else:
+            self.slides = []
+        self.current_slide_index = 0
+
+    @rx.var
+    def current_slide(self) -> dict:
+        if 0 <= self.current_slide_index < len(self.slides):
+            return self.slides[self.current_slide_index]
+        return {}
+
+    @rx.var
+    def slide_number_padded(self) -> str:
+        return str(self.current_slide_index + 1).zfill(2)
+
+    def next_slide(self):
+        if self.current_slide_index < len(self.slides) - 1:
+            self.current_slide_index += 1
+            self.chat_messages = []
+
+    def prev_slide(self):
+        if self.current_slide_index > 0:
+            self.current_slide_index -= 1
+            self.chat_messages = []
+
+    # ---- AI chat sidebar ----
+    chat_messages: list[dict] = []
+    chat_input: str = ""
+    ai_thinking: bool = False
+
+    def set_chat_input(self, value: str):
+        self.chat_input = value
+
+    def ask_ai(self, preset_question: str = ""):
+        question = preset_question or self.chat_input
+        if not question:
+            return
+
+        self.chat_messages.append({"role": "user", "content": question})
+        self.chat_input = ""
+        self.ai_thinking = True
+        yield
+
+        slide = self.current_slide
+
+        # TODO: AI backend not built yet — swap this placeholder for a
+        # real call to services.ai_service.ask(...) once ready.
+        answer = (
+            f"(AI not wired up yet) You asked about slide "
+            f"{slide.get('slide_number', '?')}: \"{question}\""
+        )
+
+        self.chat_messages.append({"role": "assistant", "content": answer})
+        self.ai_thinking = False
 
 
 class UserState(rx.State):

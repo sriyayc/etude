@@ -22,7 +22,8 @@ STATIC_STATS = [
 
 
 def semester_tile(number: int):
-    return rx.box(
+    return rx.link(
+        rx.box(
         rx.hstack(
             rx.text(
                 f"SEM {number:02d}",
@@ -70,6 +71,9 @@ def semester_tile(number: int):
             "& .tile-number": {"color": "#1E4A6B"},
             "& .tile-reveal": {"opacity": "1"},
         },
+        ),
+        href=f"/resources/{number}",
+        display="block",
     )
 
 
