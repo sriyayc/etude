@@ -22,54 +22,59 @@ STATIC_STATS = [
 
 
 def semester_tile(number: int):
-    return rx.box(
-        rx.hstack(
-            rx.text(
-                f"SEM {number:02d}",
-                color=ACCENT,
-                font_family="monospace",
-                font_size="11px",
-                letter_spacing="0.15em",
-                class_name="tile-label",
+    return rx.link(
+        rx.box(
+            rx.hstack(
+                rx.text(
+                    f"SEM {number:02d}",
+                    color=ACCENT,
+                    font_family="monospace",
+                    font_size="11px",
+                    letter_spacing="0.15em",
+                    class_name="tile-label",
+                ),
+                rx.spacer(),
+                rx.icon("arrow-up-right", size=16, color=ACCENT_LIGHT),
+                width="100%",
             ),
-            rx.spacer(),
-            rx.icon("arrow-up-right", size=16, color=ACCENT_LIGHT),
-            width="100%",
+            rx.text(
+                str(number),
+                color="#12262b",
+                font_family="'Space Grotesk', sans-serif",
+                font_weight="800",
+                font_size="120px",
+                line_height="1",
+                margin_top="30px",
+                class_name="tile-number",
+            ),
+            rx.text(
+                f"→ SEMESTER {number}",
+                color=ACCENT_LIGHT,
+                font_family="monospace",
+                font_size="12px",
+                class_name="tile-reveal",
+                opacity="0",
+                position="absolute",
+                bottom="24px",
+                left="24px",
+                transition="opacity .2s ease",
+            ),
+            padding="24px",
+            height="220px",
+            border=f"1px solid {BORDER}",
+            cursor="pointer",
+            overflow="hidden",
+            position="relative",
+            transition="background .2s ease",
+            _hover={
+                "bg": "#0A2647",
+                "& .tile-number": {"color": "#1E4A6B"},
+                "& .tile-reveal": {"opacity": "1"},
+            },
         ),
-        rx.text(
-            str(number),
-            color="#12262b",
-            font_family="'Space Grotesk', sans-serif",
-            font_weight="800",
-            font_size="120px",
-            line_height="1",
-            margin_top="30px",
-            class_name="tile-number",
-        ),
-        rx.text(
-            f"→ SEMESTER {number}",
-            color=ACCENT_LIGHT,
-            font_family="monospace",
-            font_size="12px",
-            class_name="tile-reveal",
-            opacity="0",
-            position="absolute",
-            bottom="24px",
-            left="24px",
-            transition="opacity .2s ease",
-        ),
-        padding="24px",
-        height="220px",
-        border=f"1px solid {BORDER}",
-        cursor="pointer",
-        overflow="hidden",
-        position="relative",
-        transition="background .2s ease",
-        _hover={
-            "bg": "#0A2647",
-            "& .tile-number": {"color": "#1E4A6B"},
-            "& .tile-reveal": {"opacity": "1"},
-        },
+        href=f"/resources/{number}",
+        display="block",
+        text_decoration="none",
     )
 
 
@@ -168,7 +173,7 @@ def dashboard_page():
                 border_top=f"1px solid {BORDER}",
                 border_left=f"1px solid {BORDER}",
                 style={
-                    "& > div": {
+                    "& > a": {
                         "border-right": f"1px solid {BORDER}",
                         "border-bottom": f"1px solid {BORDER}",
                     }
