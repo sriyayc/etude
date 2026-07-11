@@ -39,29 +39,38 @@ class QdrantStore(VectorStoreProvider):
 
 
     def _ensure_payload_indexes(self) -> None:
-        """Create indexes on metadata fields used for filtering."""
-        indexed_fields = [
-            "content_hash",
-            "document_id",
-            "subject",
-            "semester",
-            "topic",
-            "unit_number",
-            "is_current",
-            "source_file",
-            "document_type",
-            "version",
-         ]
+        """Create indexes on metadata fields used for filtering with correct types."""
+        field_schemas = {
+            "content_hash": "keyword",
+            "document_id": "keyword",
+            "subject": "keyword",
+            "semester": "integer",
+            "topic": "keyword",
+            "unit_number": "integer",
+            "is_current": "bool",
+            "source_file": "keyword",
+            "document_type": "keyword",
+            "version": "integer",
+        }
     
-        for field in indexed_fields:
+        for field, schema_type in field_schemas.items():
             try:
-                 self.client.create_payload_index(
-                     collection_name=self.COLLECTION,
-                     field_name=field,
-                     field_schema="keyword"
-            )
+                # Attempt to delete index first in case of a schema modification
+                try:
+                    self.client.delete_payload_index(
+                        collection_name=self.COLLECTION,
+                        field_name=field
+                    )
+                except Exception:
+                    pass
+
+                self.client.create_payload_index(
+                    collection_name=self.COLLECTION,
+                    field_name=field,
+                    field_schema=schema_type
+                )
             except Exception:
-                 pass
+                pass
 
     def upsert(
         self,
