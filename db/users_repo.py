@@ -29,11 +29,24 @@ def get_user_by_email(email: str):
     return response.data
 
 
+def get_user_by_srn(srn: str):
+    response = (
+        client.table("users")
+        .select("*")
+        .eq("srn", srn)
+        .single()
+        .execute()
+    )
+
+    return response.data
+
+
 def create_user(
     user_id: str,
     email: str,
     full_name: str,
     role: str,
+    srn: str | None = None,
 ):
     response = (
         client.table("users")
@@ -43,6 +56,7 @@ def create_user(
                 "email": email,
                 "full_name": full_name,
                 "role": role,
+                "srn": srn,
             }
         )
         .execute()
@@ -72,6 +86,3 @@ def get_role(user_id: str):
     )
 
     return response.data["role"]
-
-
-
