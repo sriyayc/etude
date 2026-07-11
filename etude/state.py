@@ -19,30 +19,6 @@ class ResourceState(rx.State):
     current_slide_index: int = 0
 
     @rx.var
-    def semester(self) -> str:
-        """Current semester route parameter."""
-
-        return (
-            self.router.page.params.get(
-                "semester",
-                "1",
-            )
-            or "1"
-        )
-
-    @rx.var
-    def subject_code(self) -> str:
-        """Current subject-code route parameter."""
-
-        return (
-            self.router.page.params.get(
-                "subject_code",
-                "",
-            )
-            or ""
-        )
-
-    @rx.var
     def quiz_url(self) -> str:
         """Quiz route for the current subject."""
 
