@@ -52,6 +52,11 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
         rx.hstack(
             nav_tab("bar-chart-2", "Resources", "/dashboard", active == "resources"),
             nav_tab("trophy", "Leaderboard", "/leaderboard", active == "leaderboard"),
+            rx.cond(
+                UserState.role == "teacher",
+                nav_tab("upload", "Upload", "/upload", active == "upload"),
+                rx.fragment(),
+            ),
             spacing="2",
             align_items="center",
         ),
@@ -97,6 +102,14 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
                 rx.menu.item(
                     rx.hstack(rx.icon("trophy", size=14), rx.text("Leaderboard"), spacing="2"),
                     on_select=lambda: rx.redirect("/leaderboard"),
+                ),
+                rx.cond(
+                    UserState.role == "teacher",
+                    rx.menu.item(
+                        rx.hstack(rx.icon("upload", size=14), rx.text("Upload"), spacing="2"),
+                        on_select=lambda: rx.redirect("/upload"),
+                    ),
+                    rx.fragment(),
                 ),
                 rx.menu.separator(),
                 rx.menu.item(

@@ -130,12 +130,7 @@ def subject_card(subject: rx.Var) -> rx.Component:
             width="100%",
         ),
 
-        href=(
-            "/resources/"
-            + ResourceState.semester
-            + "/"
-            + subject["subject_code"]
-        ),
+        href=f"/resources/{ResourceState.semester}/{subject['subject_code']}",
 
         padding="24px",
         border=f"1px solid {BORDER}",

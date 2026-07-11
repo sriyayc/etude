@@ -8,6 +8,7 @@ from .pages.profile import profile_page
 from .pages.subjects import subjects_page
 from .pages.subject_detail import subject_detail_page
 from .pages.slides_viewer import slides_viewer_page
+from .pages.upload import upload_page
 from etude.styles.theme import FONT_STYLESHEET
 from etude.state import UserState
 
@@ -26,6 +27,11 @@ app.add_page(signup_page, route="/signup")
 app.add_page(dashboard_page, route="/dashboard", on_load=UserState.load_profile)
 app.add_page(leaderboard_page, route="/leaderboard", on_load=UserState.load_profile)
 app.add_page(profile_page, route="/profile", on_load=UserState.load_profile)
+app.add_page(
+    upload_page,
+    route="/upload",
+    on_load=[UserState.load_profile, UserState.require_teacher_role],
+)
 
 # Dynamic routes — one file handles ALL semesters (1-8) and ALL subjects,
 # via the [semester] / [subject_code] URL parameters

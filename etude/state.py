@@ -99,11 +99,11 @@ class ResourceState(rx.State):
         slide = self.slides[index]
 
         return {
+            **slide,
             "title": slide.get("title") or "Untitled slide",
             "content": slide.get("content") or "",
             "module_number": slide.get("module_number") or 0,
             "slide_number": slide.get("slide_number") or index + 1,
-            **slide,
         }
 
     @rx.var
@@ -504,6 +504,8 @@ class UserState(rx.State):
     # ---- teacher upload form fields ----
     upload_title: str = ""
     upload_document_type: str = "textbook"
+    upload_subject: str = ""
+    upload_semester: str = "1"
     upload_error: str = ""
     upload_success: bool = False
     upload_loading: bool = False
@@ -539,6 +541,12 @@ class UserState(rx.State):
 
     def set_upload_document_type(self, value: str):
         self.upload_document_type = value
+
+    def set_upload_subject(self, value: str):
+        self.upload_subject = value
+
+    def set_upload_semester(self, value: str):
+        self.upload_semester = value
 
     # ---- actions ----
     async def handle_signup(self):
@@ -641,6 +649,16 @@ class UserState(rx.State):
             self.upload_error = "Give the document a title."
             return
 
+        if not self.upload_subject:
+            self.upload_error = "Enter the subject code."
+            return
+
+        try:
+            semester_number = int(self.upload_semester)
+        except (TypeError, ValueError):
+            self.upload_error = "Enter a valid semester."
+            return
+
         if not files:
             self.upload_error = "Choose a file first."
             return
@@ -659,6 +677,8 @@ class UserState(rx.State):
                     file_path=str(dest),
                     title=self.upload_title,
                     document_type=self.upload_document_type,
+                    subject=self.upload_subject,
+                    semester=semester_number,
                 )
         except Exception as e:
             self.upload_loading = False
@@ -668,3 +688,4 @@ class UserState(rx.State):
         self.upload_loading = False
         self.upload_success = True
         self.upload_title = ""
+        self.upload_subject = ""

@@ -83,6 +83,50 @@ def upload_page():
 
                 rx.box(height="20px"),
 
+                rx.hstack(
+                    rx.vstack(
+                        rx.text(
+                            "SUBJECT CODE",
+                            color=ACCENT,
+                            font_family="monospace",
+                            font_size="10px",
+                            letter_spacing="0.2em",
+                            align_self="start",
+                        ),
+                        text_input(
+                            placeholder="e.g. CS301",
+                            value=UserState.upload_subject,
+                            on_change=UserState.set_upload_subject,
+                        ),
+                        spacing="2",
+                        width="100%",
+                        align_items="start",
+                    ),
+                    rx.vstack(
+                        rx.text(
+                            "SEMESTER",
+                            color=ACCENT,
+                            font_family="monospace",
+                            font_size="10px",
+                            letter_spacing="0.2em",
+                            align_self="start",
+                        ),
+                        rx.select(
+                            [str(n) for n in range(1, 9)],
+                            value=UserState.upload_semester,
+                            on_change=UserState.set_upload_semester,
+                            width="100%",
+                        ),
+                        spacing="2",
+                        width="140px",
+                        align_items="start",
+                    ),
+                    spacing="4",
+                    width="100%",
+                ),
+
+                rx.box(height="20px"),
+
                 rx.vstack(
                     rx.text(
                         "DOCUMENT TYPE",
