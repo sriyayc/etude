@@ -32,7 +32,7 @@ def verify_config():
     missing = [k for k, v in required.items() if not v]
     if missing:
         raise ValueError(f"Missing env variables: {missing}")
-    print("✅ All env variables loaded")
+    print("All env variables loaded")
 
 if __name__ == "__main__":
     verify_config()
