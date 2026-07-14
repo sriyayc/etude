@@ -9,7 +9,7 @@ from db.documents_repo import (
     create_document,
     get_document_by_hash,
     list_documents,
-    mark_outdated
+    mark_outdated,
 )
 
 
@@ -21,11 +21,11 @@ def upload_document(
     semester: int,
 ) -> dict:
     """
-    Upload a document to storage, version it, and save its metadata in Supabase.
+    Upload a document to storage, version it, and save metadata in Supabase.
+    Idempotent — skips if content hash already exists.
     """
     teacher = require_teacher()
 
-    # 1. Compute content hash to ensure idempotency
     hasher = hashlib.sha256()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -35,33 +35,31 @@ def upload_document(
     existing = get_document_by_hash(content_hash)
     if existing:
         return {
-            "success": True,
-            "message": "Document already exists (content hash match).",
-            "title": existing["title"],
+            "success":       True,
+            "message":       "Document already exists (content hash match).",
+            "title":         existing["title"],
             "document_type": existing["document_type"],
-            "storage_path": existing["storage_path"],
-            "document_id": existing["id"],
+            "storage_path":  existing["storage_path"],
+            "document_id":   existing["id"],
+            "version":       existing["version"],
         }
 
-    # 2. Upload the file to storage
     filename = os.path.basename(file_path)
     storage_path = f"{document_type}/{filename}"
 
-    upload_pdf(
-        file_path=file_path,
-        storage_path=storage_path,
+    upload_pdf(file_path=file_path, storage_path=storage_path)
+
+    current_docs = list_documents(subject=subject, semester=semester, is_current=True)
+    matching = next(
+        (d for d in current_docs if d["title"].lower() == title.lower()),
+        None
     )
 
-    # 3. Handle versioning if a document with the same title/subject already exists
-    current_docs = list_documents(subject=subject, semester=semester, is_current=True)
-    matching_doc = next((d for d in current_docs if d["title"].lower() == title.lower()), None)
-    
     version = 1
-    if matching_doc:
-        mark_outdated(matching_doc["id"])
-        version = matching_doc["version"] + 1
+    if matching:
+        mark_outdated(matching["id"])
+        version = matching["version"] + 1
 
-    # 4. Save metadata in Database
     doc = create_document(
         uploaded_by=teacher["user_id"],
         title=title,
@@ -76,11 +74,11 @@ def upload_document(
     )
 
     return {
-        "success": True,
-        "message": "Document uploaded successfully.",
-        "title": title,
+        "success":       True,
+        "message":       "Document uploaded successfully.",
+        "title":         title,
         "document_type": document_type,
-        "storage_path": storage_path,
-        "document_id": doc["id"] if doc else None,
-        "version": version,
+        "storage_path":  storage_path,
+        "document_id":   doc["id"] if doc else None,
+        "version":       version,
     }

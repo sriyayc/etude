@@ -30,11 +30,11 @@ def create_user(
 ):
     client = get_client()
     response = client.table("users").insert({
-        "id": user_id,
-        "email": email,
+        "id":        user_id,
+        "email":     email,
         "full_name": full_name,
-        "role": role,
-        "srn": srn,
+        "role":      role,
+        "srn":       srn,
     }).execute()
     return response.data
 
