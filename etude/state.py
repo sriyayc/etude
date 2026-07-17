@@ -563,7 +563,7 @@ class UserState(rx.State):
         self.signup_loading = True
         await asyncio.sleep(0.01)
 
-        derived_email = f"{self.signup_srn.strip().lower()}@etude.local"
+        derived_email = f"{self.signup_srn.strip().lower()}@stu.pes.edu"
 
         try:
             auth_service.signup_student(

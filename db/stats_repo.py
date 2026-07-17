@@ -2,10 +2,9 @@
 
 from db.client import get_client
 
-client = get_client()
-
 
 def get_user_points(user_id: str) -> int:
+    client = get_client()
     response = (
         client.table("user_points")
         .select("points")
@@ -17,6 +16,7 @@ def get_user_points(user_id: str) -> int:
 
 
 def get_user_rank(user_id: str) -> int | None:
+    client = get_client()
     response = (
         client.table("leaderboard")
         .select("rank")
@@ -28,6 +28,7 @@ def get_user_rank(user_id: str) -> int | None:
 
 
 def get_user_streak(user_id: str) -> int:
+    client = get_client()
     response = (
         client.table("user_streaks")
         .select("current_streak")
@@ -39,7 +40,7 @@ def get_user_streak(user_id: str) -> int:
 
 
 def get_leaderboard(limit: int = 20) -> list[dict]:
-    """Full ranked leaderboard (points, rank, streak), ordered by rank."""
+    client = get_client()
     response = (
         client.table("leaderboard_full")
         .select("*")
@@ -51,7 +52,7 @@ def get_leaderboard(limit: int = 20) -> list[dict]:
 
 
 def get_subjects_active(user_id: str) -> int:
-    """Distinct topics/subjects the user has attempted a quiz in."""
+    client = get_client()
     response = (
         client.table("quiz_attempts")
         .select("topic_name")
@@ -63,6 +64,7 @@ def get_subjects_active(user_id: str) -> int:
 
 
 def get_recent_quiz_activity(user_id: str, limit: int = 10) -> list[dict]:
+    client = get_client()
     response = (
         client.table("quiz_attempts")
         .select("*")

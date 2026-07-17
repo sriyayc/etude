@@ -2,10 +2,9 @@
 
 from db.client import get_client
 
-client = get_client()
-
 
 def list_subjects_by_semester(semester: int) -> list[dict]:
+    client = get_client()
     response = (
         client.table("subjects")
         .select("*")
@@ -17,6 +16,7 @@ def list_subjects_by_semester(semester: int) -> list[dict]:
 
 
 def get_subject(semester: int, subject_code: str) -> dict | None:
+    client = get_client()
     response = (
         client.table("subjects")
         .select("*")
@@ -29,6 +29,7 @@ def get_subject(semester: int, subject_code: str) -> dict | None:
 
 
 def list_slides(document_id: str) -> list[dict]:
+    client = get_client()
     response = (
         client.table("slides")
         .select("*")
@@ -40,6 +41,7 @@ def list_slides(document_id: str) -> list[dict]:
 
 
 def get_slide(document_id: str, slide_number: int) -> dict | None:
+    client = get_client()
     response = (
         client.table("slides")
         .select("*")
