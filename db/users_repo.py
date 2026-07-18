@@ -39,12 +39,6 @@ def create_user(
     return response.data
 
 
-def update_role(user_id: str, role: str):
-    client = get_client()
-    response = client.table("users").update({"role": role}).eq("id", user_id).execute()
-    return response.data
-
-
 def get_role(user_id: str) -> str:
     client = get_client()
     response = client.table("users").select("role").eq("id", user_id).single().execute()
