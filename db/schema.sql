@@ -76,38 +76,67 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 
 -- ==========================================================
 -- USER POINTS
+-- Computed view, not a base table -- there is no write path for
+-- points anywhere in the app; it's a live SUM over quiz_attempts.
 -- ==========================================================
-CREATE TABLE IF NOT EXISTS user_points (
-    user_id UUID PRIMARY KEY
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-
-    points INTEGER NOT NULL DEFAULT 0,
-
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
+CREATE OR REPLACE VIEW user_points AS
+SELECT
+    u.id AS user_id,
+    u.full_name,
+    u.srn,
+    COALESCE((sum(qa.score) * 100), (0)::bigint) AS points
+FROM users u
+LEFT JOIN quiz_attempts qa ON (qa.user_id = u.id)
+GROUP BY u.id, u.full_name, u.srn;
 
 -- ==========================================================
 -- USER STREAKS
+-- Computed view, not a base table -- derives the current
+-- consecutive-day streak from distinct quiz_attempts dates.
 -- ==========================================================
-CREATE TABLE IF NOT EXISTS user_streaks (
-    user_id UUID PRIMARY KEY
-        REFERENCES users(id)
-        ON DELETE CASCADE,
+CREATE OR REPLACE VIEW user_streaks AS
+WITH attempt_days AS (
+    SELECT DISTINCT
+        quiz_attempts.user_id,
+        (quiz_attempts.attempted_at)::date AS day
+    FROM quiz_attempts
+), grouped AS (
+    SELECT
+        attempt_days.user_id,
+        attempt_days.day,
+        (attempt_days.day - (row_number() OVER (
+            PARTITION BY attempt_days.user_id ORDER BY attempt_days.day
+        ))::integer) AS grp
+    FROM attempt_days
+), islands AS (
+    SELECT
+        grouped.user_id,
+        grouped.grp,
+        count(*) AS streak_length,
+        max(grouped.day) AS last_day
+    FROM grouped
+    GROUP BY grouped.user_id, grouped.grp
+)
+SELECT
+    user_id,
+    streak_length AS current_streak
+FROM islands
+WHERE (last_day >= (CURRENT_DATE - '1 day'::interval))
+ORDER BY user_id;
 
-    current_streak INTEGER NOT NULL DEFAULT 0,
-
-    last_active_date DATE,
-
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- Views can't take RLS policies or ALTER TABLE ... ENABLE ROW LEVEL
+-- SECURITY (that errors: "not supported for views"). They also aren't
+-- filtered to the querying user's own row -- like the leaderboard
+-- views below, they read across all users by design. Restrict them to
+-- authenticated only; anon must never see this (matches leaderboard's
+-- audience, and neither is granted to anon).
+GRANT SELECT ON user_points TO authenticated;
+GRANT SELECT ON user_streaks TO authenticated;
 
 -- ==========================================================
 -- LEADERBOARD VIEWS
 -- (owned by the migration-running role, e.g. `postgres`, so
--- they can read across all users' rows for ranking purposes
--- even though user_points/user_streaks RLS below is
--- own-row-only for direct table access.)
+-- they can read across all users' rows for ranking purposes.)
 -- ==========================================================
 
 CREATE OR REPLACE VIEW leaderboard AS
@@ -129,6 +158,12 @@ SELECT
     l.user_id
 FROM leaderboard l
 JOIN users u ON u.id = l.user_id;
+
+-- Same reasoning as user_points/user_streaks above: explicit grant so
+-- visibility doesn't depend on ambient default privileges. Authenticated
+-- only, never anon.
+GRANT SELECT ON leaderboard TO authenticated;
+GRANT SELECT ON leaderboard_full TO authenticated;
 
 -- ==========================================================
 -- APP SECRETS
@@ -220,8 +255,9 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE syllabus_topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE query_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_points ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
+-- user_points / user_streaks are views (see above), not tables --
+-- ENABLE ROW LEVEL SECURITY doesn't apply to them; access is
+-- controlled by the GRANTs already issued where they're defined.
 
 -- ==========================================================
 -- USERS POLICIES
@@ -299,13 +335,6 @@ CREATE POLICY "Users create own quiz attempts"
 ON quiz_attempts FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
 
--- ==========================================================
--- USER POINTS / STREAKS POLICIES
--- ==========================================================
-CREATE POLICY "Users can view own points"
-ON user_points FOR SELECT TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own streak"
-ON user_streaks FOR SELECT TO authenticated
-USING (auth.uid() = user_id);
+-- user_points / user_streaks are views, not tables -- no RLS policy
+-- to add here. Access is already scoped to `authenticated` only via
+-- the GRANTs issued where the views are defined above.
