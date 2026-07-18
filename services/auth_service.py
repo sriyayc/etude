@@ -1,7 +1,6 @@
 """Authentication service."""
 
-import config
-from db.client import get_client
+from db.client import get_client, get_service_client
 from db import users_repo
 
 
@@ -43,14 +42,18 @@ def signup_teacher(
     full_name: str,
     invite_token: str,
 ) -> dict:
-    if invite_token != config.TEACHER_INVITE_TOKEN:
-        raise PermissionError("Invalid teacher invite token")
-
+    """
+    Signs up as a student first (the only role RLS allows self-serve
+    INSERT to set), then promotes via the promote_to_teacher RPC, which
+    checks invite_token against the private app_secrets table in the
+    database -- never against app-layer config. If the token is wrong,
+    the promotion is rejected and the account is left as a student.
+    """
     client = get_client()
     response = client.auth.sign_up({
         "email": email,
         "password": password,
-        "options": {"data": {"role": "teacher"}}
+        "options": {"data": {"role": "student"}}
     })
 
     if response.user is None:
@@ -60,8 +63,15 @@ def signup_teacher(
         user_id=response.user.id,
         email=email,
         full_name=full_name,
-        role="teacher",
+        role="student",
     )
+
+    try:
+        client.rpc(
+            "promote_to_teacher", {"p_invite_token": invite_token}
+        ).execute()
+    except Exception:
+        raise PermissionError("Invalid teacher invite token")
 
     return {
         "user_id": response.user.id,
@@ -78,7 +88,12 @@ def login(srn: str, password: str) -> dict:
     """
     client = get_client()
 
-    email_response = client.rpc("get_email_by_srn", {"p_srn": srn}).execute()
+    # get_email_by_srn is only granted to service_role (SRNs are
+    # sequential/enumerable, so it must never be reachable with the public
+    # anon key) -- use the service client here, not the user-facing one.
+    email_response = get_service_client().rpc(
+        "get_email_by_srn", {"p_srn": srn}
+    ).execute()
     email = email_response.data
 
     if not email:

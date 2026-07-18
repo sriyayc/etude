@@ -5,17 +5,10 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
     full_name TEXT,
-<<<<<<< HEAD
-    role TEXT NOT NULL CHECK (role IN ('student', 'teacher')),
-=======
-
     srn TEXT UNIQUE,
-
     role TEXT NOT NULL CHECK (
         role IN ('student', 'teacher')
     ),
-
->>>>>>> feature/supabase-integration
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -82,12 +75,8 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 );
 
 -- ==========================================================
-<<<<<<< HEAD
--- ENABLE RLS ON ALL TABLES
-=======
 -- USER POINTS
 -- ==========================================================
-
 CREATE TABLE IF NOT EXISTS user_points (
     user_id UUID PRIMARY KEY
         REFERENCES users(id)
@@ -101,7 +90,6 @@ CREATE TABLE IF NOT EXISTS user_points (
 -- ==========================================================
 -- USER STREAKS
 -- ==========================================================
-
 CREATE TABLE IF NOT EXISTS user_streaks (
     user_id UUID PRIMARY KEY
         REFERENCES users(id)
@@ -143,10 +131,40 @@ FROM leaderboard l
 JOIN users u ON u.id = l.user_id;
 
 -- ==========================================================
+-- APP SECRETS
+-- RLS is enabled with zero policies below, and no GRANTs are
+-- issued to anon/authenticated: PostgREST can never read or
+-- write this table under those roles. Only SECURITY DEFINER
+-- functions (which run as the table owner) or a direct
+-- service_role/postgres connection can touch it. This is where
+-- server-validated secrets (like the teacher invite token) live
+-- instead of in app-layer env config.
+-- ==========================================================
+CREATE TABLE IF NOT EXISTS app_secrets (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+ALTER TABLE app_secrets ENABLE ROW LEVEL SECURITY;
+
+-- Placeholder only. After running this migration, set the real
+-- value from the Supabase SQL editor (a service_role/postgres
+-- connection, never from a migration file that gets committed):
+--   UPDATE app_secrets SET value = '<the real invite token>'
+--   WHERE key = 'teacher_invite_token';
+INSERT INTO app_secrets (key, value)
+VALUES ('teacher_invite_token', 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR')
+ON CONFLICT (key) DO NOTHING;
+
+-- ==========================================================
 -- RPC: look up a user's auth email by SRN
--- (SECURITY DEFINER so it can be called by an unauthenticated
--- client during login, before RLS would otherwise allow a
--- direct read of the users table.)
+-- (SECURITY DEFINER so it can be called before login, when the
+-- caller has no session yet. PES SRNs are sequential and
+-- enumerable, so this must NEVER be reachable by anon or
+-- authenticated -- that would let anyone script-harvest every
+-- user's email pre-auth. It is granted only to service_role,
+-- i.e. only callable from the trusted backend, never directly
+-- from a public client holding just the publishable key.)
 -- ==========================================================
 
 CREATE OR REPLACE FUNCTION get_email_by_srn(p_srn TEXT)
@@ -158,11 +176,44 @@ AS $$
     SELECT email FROM users WHERE srn = p_srn LIMIT 1;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_email_by_srn(TEXT) TO anon, authenticated;
+REVOKE ALL ON FUNCTION get_email_by_srn(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_email_by_srn(TEXT) TO service_role;
+
+-- ==========================================================
+-- RPC: promote the CALLING user to teacher
+-- (SECURITY DEFINER so it can update users.role, which no RLS
+-- policy below permits directly. Only ever touches auth.uid()'s
+-- own row, and only after checking the invite token against the
+-- private app_secrets table above -- never against client-
+-- supplied data or app-layer env config.)
+-- ==========================================================
+
+CREATE OR REPLACE FUNCTION promote_to_teacher(p_invite_token TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    IF p_invite_token IS NULL OR p_invite_token <> (
+        SELECT value FROM app_secrets WHERE key = 'teacher_invite_token'
+    ) THEN
+        RAISE EXCEPTION 'Invalid teacher invite token';
+    END IF;
+
+    UPDATE users SET role = 'teacher' WHERE id = auth.uid();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION promote_to_teacher(TEXT) TO authenticated;
 
 -- ==========================================================
 -- ENABLE ROW LEVEL SECURITY
->>>>>>> feature/supabase-integration
 -- ==========================================================
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
@@ -173,19 +224,19 @@ ALTER TABLE user_points ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
-<<<<<<< HEAD
 -- USERS POLICIES
-=======
--- RLS POLICIES
->>>>>>> feature/supabase-integration
 -- ==========================================================
 CREATE POLICY "Users view own profile"
 ON users FOR SELECT TO authenticated
 USING (auth.uid() = id);
 
+-- role is pinned to 'student' here on purpose: this is the only
+-- INSERT path RLS allows, so self-serve signup can never write
+-- role = 'teacher' directly. Teacher promotion only happens
+-- through promote_to_teacher(), which is invite-token gated.
 CREATE POLICY "Users create own profile"
 ON users FOR INSERT TO authenticated
-WITH CHECK (auth.uid() = id);
+WITH CHECK (auth.uid() = id AND role = 'student');
 
 -- ==========================================================
 -- DOCUMENTS POLICIES
@@ -194,11 +245,11 @@ CREATE POLICY "Authenticated users read documents"
 ON documents FOR SELECT TO authenticated
 USING (true);
 
-<<<<<<< HEAD
 CREATE POLICY "Only teachers insert documents"
 ON documents FOR INSERT TO authenticated
 WITH CHECK (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
+    uploaded_by = auth.uid()
+    AND (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
 );
 
 CREATE POLICY "Only teachers update documents"
@@ -247,58 +298,14 @@ USING (user_id = auth.uid());
 CREATE POLICY "Users create own quiz attempts"
 ON quiz_attempts FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
-=======
-CREATE POLICY "Teachers can upload documents"
-ON documents
-FOR INSERT
-TO authenticated
-WITH CHECK (
-    uploaded_by = auth.uid()
-    AND EXISTS (
-        SELECT 1 FROM users
-        WHERE id = auth.uid() AND role = 'teacher'
-    )
-);
 
-CREATE POLICY "Authenticated users can read syllabus topics"
-ON syllabus_topics
-FOR SELECT
-TO authenticated
-USING (true);
-
-CREATE POLICY "Users can view own query logs"
-ON query_logs
-FOR SELECT
-TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own query logs"
-ON query_logs
-FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own quiz attempts"
-ON quiz_attempts
-FOR SELECT
-TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own quiz attempts"
-ON quiz_attempts
-FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = user_id);
-
+-- ==========================================================
+-- USER POINTS / STREAKS POLICIES
+-- ==========================================================
 CREATE POLICY "Users can view own points"
-ON user_points
-FOR SELECT
-TO authenticated
+ON user_points FOR SELECT TO authenticated
 USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can view own streak"
-ON user_streaks
-FOR SELECT
-TO authenticated
+ON user_streaks FOR SELECT TO authenticated
 USING (auth.uid() = user_id);
->>>>>>> feature/supabase-integration
