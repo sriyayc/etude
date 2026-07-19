@@ -49,6 +49,13 @@ ON users FOR UPDATE TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
+-- RLS policies alone don't grant access -- PostgREST also needs the base
+-- object-level GRANT, which nothing has issued for UPDATE on users yet.
+-- Without this, ALL updates fail closed (accidentally "safe" for role
+-- changes, but also blocks legitimate profile edits and makes the
+-- trigger above unreachable dead code).
+GRANT UPDATE ON users TO authenticated;
+
 -- ----------------------------------------------------------------
 -- 2. Store the invite token as a SHA-256 hash, and compare in a
 --    way that doesn't leak length/content via timing. Also reject
@@ -58,7 +65,11 @@ CREATE OR REPLACE FUNCTION promote_to_teacher(p_invite_token TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+-- Supabase installs pgcrypto (digest()) into the `extensions` schema by
+-- default, not `public`. `extensions` is owner-controlled, not writable
+-- by anon/authenticated, so including it here doesn't reopen the
+-- search-path-injection risk that pinning search_path guards against.
+SET search_path = public, extensions
 AS $$
 DECLARE
     stored_hash TEXT;
