@@ -211,7 +211,12 @@ AS $$
     SELECT email FROM users WHERE srn = p_srn LIMIT 1;
 $$;
 
-REVOKE ALL ON FUNCTION get_email_by_srn(TEXT) FROM PUBLIC;
+-- REVOKE ... FROM PUBLIC alone does NOT undo a grant made directly to a
+-- named role -- and the pre-existing live deployment of this function
+-- had `GRANT EXECUTE ... TO anon, authenticated` applied explicitly.
+-- Revoke from those roles by name, not just PUBLIC, or the original
+-- anon-callable grant silently survives underneath.
+REVOKE ALL ON FUNCTION get_email_by_srn(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_email_by_srn(TEXT) TO service_role;
 
 -- ==========================================================
@@ -244,7 +249,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION promote_to_teacher(TEXT) TO authenticated;
 
 -- ==========================================================
@@ -261,11 +266,25 @@ ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
 -- USERS POLICIES
+-- Every CREATE POLICY below is preceded by a DROP POLICY IF EXISTS
+-- so this script is safely re-runnable against a live instance
+-- that already has some (possibly differently-shaped) policies
+-- applied from before this migration existed.
 -- ==========================================================
+DROP POLICY IF EXISTS "Users view own profile" ON users;
 CREATE POLICY "Users view own profile"
 ON users FOR SELECT TO authenticated
 USING (auth.uid() = id);
 
+-- "Users can insert own profile" was a duplicate of "Users create
+-- own profile" left over from the two branches that got merged
+-- into this file -- both had WITH CHECK (auth.uid() = id) with NO
+-- role restriction. Permissive RLS policies are OR'd together, so
+-- leaving either one in place independently re-opens the exact
+-- role-escalation hole the policy below closes. Drop both names,
+-- recreate only the hardened one.
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
+DROP POLICY IF EXISTS "Users create own profile" ON users;
 -- role is pinned to 'student' here on purpose: this is the only
 -- INSERT path RLS allows, so self-serve signup can never write
 -- role = 'teacher' directly. Teacher promotion only happens
@@ -277,10 +296,12 @@ WITH CHECK (auth.uid() = id AND role = 'student');
 -- ==========================================================
 -- DOCUMENTS POLICIES
 -- ==========================================================
+DROP POLICY IF EXISTS "Authenticated users read documents" ON documents;
 CREATE POLICY "Authenticated users read documents"
 ON documents FOR SELECT TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Only teachers insert documents" ON documents;
 CREATE POLICY "Only teachers insert documents"
 ON documents FOR INSERT TO authenticated
 WITH CHECK (
@@ -288,12 +309,14 @@ WITH CHECK (
     AND (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
 );
 
+DROP POLICY IF EXISTS "Only teachers update documents" ON documents;
 CREATE POLICY "Only teachers update documents"
 ON documents FOR UPDATE TO authenticated
 USING (
     (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
 );
 
+DROP POLICY IF EXISTS "Only teachers delete documents" ON documents;
 CREATE POLICY "Only teachers delete documents"
 ON documents FOR DELETE TO authenticated
 USING (
@@ -303,10 +326,12 @@ USING (
 -- ==========================================================
 -- SYLLABUS TOPICS POLICIES
 -- ==========================================================
+DROP POLICY IF EXISTS "Authenticated users read syllabus" ON syllabus_topics;
 CREATE POLICY "Authenticated users read syllabus"
 ON syllabus_topics FOR SELECT TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Only teachers manage syllabus" ON syllabus_topics;
 CREATE POLICY "Only teachers manage syllabus"
 ON syllabus_topics FOR ALL TO authenticated
 USING (
@@ -316,10 +341,12 @@ USING (
 -- ==========================================================
 -- QUERY LOGS POLICIES
 -- ==========================================================
+DROP POLICY IF EXISTS "Users see own queries" ON query_logs;
 CREATE POLICY "Users see own queries"
 ON query_logs FOR SELECT TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users create own queries" ON query_logs;
 CREATE POLICY "Users create own queries"
 ON query_logs FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
@@ -327,10 +354,18 @@ WITH CHECK (user_id = auth.uid());
 -- ==========================================================
 -- QUIZ ATTEMPTS POLICIES
 -- ==========================================================
+-- Same duplicate-policy situation as users above: "Users can view
+-- own quiz attempts" and "Users see own quiz attempts" are two
+-- differently-named copies of the identical SELECT check. Not a
+-- security gap (both are equally restrictive), but redundant and
+-- worth collapsing to one while we're here.
+DROP POLICY IF EXISTS "Users can view own quiz attempts" ON quiz_attempts;
+DROP POLICY IF EXISTS "Users see own quiz attempts" ON quiz_attempts;
 CREATE POLICY "Users see own quiz attempts"
 ON quiz_attempts FOR SELECT TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users create own quiz attempts" ON quiz_attempts;
 CREATE POLICY "Users create own quiz attempts"
 ON quiz_attempts FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());

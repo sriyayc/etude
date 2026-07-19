@@ -91,7 +91,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION promote_to_teacher(TEXT) TO authenticated;
 
 -- ----------------------------------------------------------------
