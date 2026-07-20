@@ -1,4 +1,4 @@
-reflex==0.9.6.post1
+reflex==0.9.7
 
 # Supabase
 supabase==2.31.0
