@@ -2,11 +2,11 @@
 
 from services.auth_service import (
     signup_student,
-    signup_teacher,
+    signup_admin,
     login,
     logout,
     get_current_user,
-    require_teacher,
+    require_admin,
 )
 from services.storage_service import (
     upload_pdf,
@@ -26,11 +26,11 @@ from services.syllabus_service import upload_and_process_syllabus, get_syllabus_
 
 __all__ = [
     "signup_student",
-    "signup_teacher",
+    "signup_admin",
     "login",
     "logout",
     "get_current_user",
-    "require_teacher",
+    "require_admin",
     "upload_pdf",
     "delete_pdf",
     "download_pdf",

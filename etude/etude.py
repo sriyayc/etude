@@ -25,15 +25,15 @@ def index():
 
 
 app.add_page(index, route="/")
-app.add_page(login_page, route="/login")
-app.add_page(signup_page, route="/signup")
+app.add_page(login_page, route="/login", on_load=UserState.clear_auth_errors)
+app.add_page(signup_page, route="/signup", on_load=UserState.clear_auth_errors)
 app.add_page(dashboard_page, route="/dashboard", on_load=UserState.load_profile)
 app.add_page(leaderboard_page, route="/leaderboard", on_load=UserState.load_profile)
 app.add_page(profile_page, route="/profile", on_load=UserState.load_profile)
 app.add_page(
     upload_page,
     route="/upload",
-    on_load=[UserState.load_profile, UserState.require_teacher_role],
+    on_load=[UserState.load_profile, UserState.require_admin_role],
 )
 
 # Dynamic routes — handles semesters, subjects, slides, quizzes, flashcards, and notes

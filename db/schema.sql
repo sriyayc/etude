@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT,
     srn TEXT UNIQUE,
     role TEXT NOT NULL CHECK (
-        role IN ('student', 'teacher')
+        role IN ('student', 'admin')
     ),
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -172,7 +172,7 @@ GRANT SELECT ON leaderboard_full TO authenticated;
 -- write this table under those roles. Only SECURITY DEFINER
 -- functions (which run as the table owner) or a direct
 -- service_role/postgres connection can touch it. This is where
--- server-validated secrets (like the teacher invite token) live
+-- server-validated secrets (like the admin invite token) live
 -- instead of in app-layer env config.
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS app_secrets (
@@ -186,9 +186,11 @@ ALTER TABLE app_secrets ENABLE ROW LEVEL SECURITY;
 -- value from the Supabase SQL editor (a service_role/postgres
 -- connection, never from a migration file that gets committed):
 --   UPDATE app_secrets SET value = '<the real invite token>'
---   WHERE key = 'teacher_invite_token';
+--   WHERE key = 'admin_invite_token';
+-- (db/hardening_patch.sql upgrades this to a hashed key --
+-- 'admin_invite_token_sha256' -- run it after this file.)
 INSERT INTO app_secrets (key, value)
-VALUES ('teacher_invite_token', 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR')
+VALUES ('admin_invite_token', 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR')
 ON CONFLICT (key) DO NOTHING;
 
 -- ==========================================================
@@ -220,15 +222,49 @@ REVOKE ALL ON FUNCTION get_email_by_srn(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_email_by_srn(TEXT) TO service_role;
 
 -- ==========================================================
--- RPC: promote the CALLING user to teacher
+-- TRIGGER: block direct role changes on users
+-- (Defence in depth against a client updating its own row's role
+-- via a normal UPDATE, even though no RLS policy currently permits
+-- that. promote_to_admin() below is the one sanctioned path --
+-- it opts in per-transaction via the etude.allow_role_change flag.)
+-- ==========================================================
+
+CREATE OR REPLACE FUNCTION prevent_role_self_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF NEW.role IS DISTINCT FROM OLD.role
+       AND current_setting('etude.allow_role_change', true) IS DISTINCT FROM 'on'
+    THEN
+        RAISE EXCEPTION 'role cannot be changed directly';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_prevent_role_self_change ON users;
+CREATE TRIGGER trg_prevent_role_self_change
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION prevent_role_self_change();
+
+-- ==========================================================
+-- RPC: promote the CALLING user to admin
 -- (SECURITY DEFINER so it can update users.role, which no RLS
 -- policy below permits directly. Only ever touches auth.uid()'s
 -- own row, and only after checking the invite token against the
 -- private app_secrets table above -- never against client-
--- supplied data or app-layer env config.)
+-- supplied data or app-layer env config.
+--
+-- This is the plaintext baseline; db/hardening_patch.sql replaces
+-- it with a version that compares a SHA-256 hash instead -- run
+-- that file after this one in any real deployment.)
 -- ==========================================================
 
-CREATE OR REPLACE FUNCTION promote_to_teacher(p_invite_token TEXT)
+CREATE OR REPLACE FUNCTION promote_to_admin(p_invite_token TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -240,17 +276,21 @@ BEGIN
     END IF;
 
     IF p_invite_token IS NULL OR p_invite_token <> (
-        SELECT value FROM app_secrets WHERE key = 'teacher_invite_token'
+        SELECT value FROM app_secrets WHERE key = 'admin_invite_token'
     ) THEN
-        RAISE EXCEPTION 'Invalid teacher invite token';
+        RAISE EXCEPTION 'Invalid admin invite token';
     END IF;
 
-    UPDATE users SET role = 'teacher' WHERE id = auth.uid();
+    -- trg_prevent_role_self_change blocks role UPDATEs by default;
+    -- this transaction-local flag (auto-resets at commit) is the
+    -- one sanctioned opt-in, scoped to just this UPDATE.
+    PERFORM set_config('etude.allow_role_change', 'on', true);
+    UPDATE users SET role = 'admin' WHERE id = auth.uid();
 END;
 $$;
 
-REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION promote_to_teacher(TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION promote_to_admin(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION promote_to_admin(TEXT) TO authenticated;
 
 -- ==========================================================
 -- ENABLE ROW LEVEL SECURITY
@@ -287,8 +327,8 @@ DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 DROP POLICY IF EXISTS "Users create own profile" ON users;
 -- role is pinned to 'student' here on purpose: this is the only
 -- INSERT path RLS allows, so self-serve signup can never write
--- role = 'teacher' directly. Teacher promotion only happens
--- through promote_to_teacher(), which is invite-token gated.
+-- role = 'admin' directly. Admin promotion only happens
+-- through promote_to_admin(), which is invite-token gated.
 CREATE POLICY "Users create own profile"
 ON users FOR INSERT TO authenticated
 WITH CHECK (auth.uid() = id AND role = 'student');
@@ -302,25 +342,28 @@ ON documents FOR SELECT TO authenticated
 USING (true);
 
 DROP POLICY IF EXISTS "Only teachers insert documents" ON documents;
-CREATE POLICY "Only teachers insert documents"
+DROP POLICY IF EXISTS "Only admin insert documents" ON documents;
+CREATE POLICY "Only admin insert documents"
 ON documents FOR INSERT TO authenticated
 WITH CHECK (
     uploaded_by = auth.uid()
-    AND (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
+    AND (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
 );
 
 DROP POLICY IF EXISTS "Only teachers update documents" ON documents;
-CREATE POLICY "Only teachers update documents"
+DROP POLICY IF EXISTS "Only admin update documents" ON documents;
+CREATE POLICY "Only admin update documents"
 ON documents FOR UPDATE TO authenticated
 USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
 );
 
 DROP POLICY IF EXISTS "Only teachers delete documents" ON documents;
-CREATE POLICY "Only teachers delete documents"
+DROP POLICY IF EXISTS "Only admin delete documents" ON documents;
+CREATE POLICY "Only admin delete documents"
 ON documents FOR DELETE TO authenticated
 USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
 );
 
 -- ==========================================================
@@ -332,10 +375,11 @@ ON syllabus_topics FOR SELECT TO authenticated
 USING (true);
 
 DROP POLICY IF EXISTS "Only teachers manage syllabus" ON syllabus_topics;
-CREATE POLICY "Only teachers manage syllabus"
+DROP POLICY IF EXISTS "Only admin manage syllabus" ON syllabus_topics;
+CREATE POLICY "Only admin manage syllabus"
 ON syllabus_topics FOR ALL TO authenticated
 USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'teacher'
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
 );
 
 -- ==========================================================
@@ -373,3 +417,83 @@ WITH CHECK (user_id = auth.uid());
 -- user_points / user_streaks are views, not tables -- no RLS policy
 -- to add here. Access is already scoped to `authenticated` only via
 -- the GRANTs issued where the views are defined above.
+
+-- ==========================================================
+-- STORAGE: "documents" bucket policies
+-- (The bucket itself is created via the Supabase dashboard/API, not
+-- here. Without these, storage.objects has zero policies and every
+-- upload/download call fails regardless of caller role -- confirmed
+-- via storage_service.upload_pdf raising "row-level security policy"
+-- for an authenticated admin.)
+-- ==========================================================
+
+DROP POLICY IF EXISTS "Teachers upload to documents bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Admin upload to documents bucket" ON storage.objects;
+CREATE POLICY "Admin upload to documents bucket"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+    bucket_id = 'documents'
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+);
+
+DROP POLICY IF EXISTS "Authenticated users read documents bucket" ON storage.objects;
+CREATE POLICY "Authenticated users read documents bucket"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'documents');
+
+DROP POLICY IF EXISTS "Teachers update documents bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Admin update documents bucket" ON storage.objects;
+CREATE POLICY "Admin update documents bucket"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+    bucket_id = 'documents'
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+);
+
+DROP POLICY IF EXISTS "Teachers delete from documents bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Admin delete from documents bucket" ON storage.objects;
+CREATE POLICY "Admin delete from documents bucket"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+    bucket_id = 'documents'
+    AND (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+);
+
+-- ==========================================================
+-- SUBJECTS / SLIDES POLICIES
+-- (These two tables are a pre-existing resources-browsing catalog
+-- that predates this schema file -- their CREATE TABLE isn't tracked
+-- here, only the write policies added when the upload flow was wired
+-- to populate them via services/catalog_service.py.)
+-- ==========================================================
+DROP POLICY IF EXISTS "Only teachers insert subjects" ON subjects;
+DROP POLICY IF EXISTS "Only admin insert subjects" ON subjects;
+CREATE POLICY "Only admin insert subjects"
+ON subjects FOR INSERT TO authenticated
+WITH CHECK (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+);
+
+DROP POLICY IF EXISTS "Only teachers update subjects" ON subjects;
+DROP POLICY IF EXISTS "Only admin update subjects" ON subjects;
+CREATE POLICY "Only admin update subjects"
+ON subjects FOR UPDATE TO authenticated
+USING (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+);
+
+DROP POLICY IF EXISTS "Only teachers insert slides" ON slides;
+DROP POLICY IF EXISTS "Only admin insert slides" ON slides;
+CREATE POLICY "Only admin insert slides"
+ON slides FOR INSERT TO authenticated
+WITH CHECK (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+);
+
+DROP POLICY IF EXISTS "Only teachers update slides" ON slides;
+DROP POLICY IF EXISTS "Only admin update slides" ON slides;
+CREATE POLICY "Only admin update slides"
+ON slides FOR UPDATE TO authenticated
+USING (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+);

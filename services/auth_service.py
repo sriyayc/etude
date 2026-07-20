@@ -36,7 +36,7 @@ def signup_student(
     }
 
 
-def signup_teacher(
+def signup_admin(
     email: str,
     password: str,
     full_name: str,
@@ -44,7 +44,7 @@ def signup_teacher(
 ) -> dict:
     """
     Signs up as a student first (the only role RLS allows self-serve
-    INSERT to set), then promotes via the promote_to_teacher RPC, which
+    INSERT to set), then promotes via the promote_to_admin RPC, which
     checks invite_token against the private app_secrets table in the
     database -- never against app-layer config. If the token is wrong,
     the promotion is rejected and the account is left as a student.
@@ -68,15 +68,15 @@ def signup_teacher(
 
     try:
         client.rpc(
-            "promote_to_teacher", {"p_invite_token": invite_token}
+            "promote_to_admin", {"p_invite_token": invite_token}
         ).execute()
     except Exception:
-        raise PermissionError("Invalid teacher invite token")
+        raise PermissionError("Invalid admin invite token")
 
     return {
         "user_id": response.user.id,
         "email":   email,
-        "role":    "teacher",
+        "role":    "admin",
     }
 
 
@@ -141,8 +141,8 @@ def get_current_user() -> dict:
     }
 
 
-def require_teacher() -> dict:
+def require_admin() -> dict:
     user = get_current_user()
-    if user["role"] != "teacher":
-        raise PermissionError("Teacher access required")
+    if user["role"] != "admin":
+        raise PermissionError("Admin access required")
     return user

@@ -1,6 +1,6 @@
 """Syllabus service."""
 
-from services.auth_service import require_teacher
+from services.auth_service import require_admin
 from syllabus.extractor import extract_syllabus, save_syllabus_json, load_syllabus_json
 from syllabus.comparator import compare_syllabi, compare_syllabi_json
 from syllabus.tagger import tag_document_chunks, apply_syllabus_diff
@@ -71,8 +71,8 @@ def tag_document(
     subject: str,
     semester: int,
 ) -> dict:
-    """Tag a document's chunks with syllabus topics. Teacher only."""
-    require_teacher()
+    """Tag a document's chunks with syllabus topics. Admin only."""
+    require_admin()
     tagged = tag_document_chunks(
         document_id=document_id,
         subject=subject,
@@ -91,5 +91,5 @@ def apply_diff_to_qdrant(
     semester: int,
 ) -> dict:
     """Apply a rich diff result to Qdrant — marks stale, confirms current."""
-    require_teacher()
+    require_admin()
     return apply_syllabus_diff(diff=diff, subject=subject, semester=semester)

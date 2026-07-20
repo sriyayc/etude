@@ -53,7 +53,7 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
             nav_tab("bar-chart-2", "Resources", "/dashboard", active == "resources"),
             nav_tab("trophy", "Leaderboard", "/leaderboard", active == "leaderboard"),
             rx.cond(
-                UserState.role == "teacher",
+                UserState.role == "admin",
                 nav_tab("upload", "Upload", "/upload", active == "upload"),
                 rx.fragment(),
             ),
@@ -104,7 +104,7 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
                     on_select=lambda: rx.redirect("/leaderboard"),
                 ),
                 rx.cond(
-                    UserState.role == "teacher",
+                    UserState.role == "admin",
                     rx.menu.item(
                         rx.hstack(rx.icon("upload", size=14), rx.text("Upload"), spacing="2"),
                         on_select=lambda: rx.redirect("/upload"),

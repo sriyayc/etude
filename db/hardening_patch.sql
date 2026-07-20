@@ -23,7 +23,7 @@ SET search_path = public
 AS $$
 BEGIN
     -- Allow role changes only when NOT coming from the row's own user.
-    -- promote_to_teacher() runs as SECURITY DEFINER (role = postgres),
+    -- promote_to_admin() runs as SECURITY DEFINER (role = postgres),
     -- so auth.uid() there is still the caller -- we instead let that
     -- function bypass by checking a session flag it sets.
     IF NEW.role IS DISTINCT FROM OLD.role
@@ -61,7 +61,7 @@ GRANT UPDATE ON users TO authenticated;
 --    way that doesn't leak length/content via timing. Also reject
 --    the un-configured placeholder outright.
 -- ----------------------------------------------------------------
-CREATE OR REPLACE FUNCTION promote_to_teacher(p_invite_token TEXT)
+CREATE OR REPLACE FUNCTION promote_to_admin(p_invite_token TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -80,10 +80,10 @@ BEGIN
     END IF;
 
     SELECT value INTO stored_hash
-    FROM app_secrets WHERE key = 'teacher_invite_token_sha256';
+    FROM app_secrets WHERE key = 'admin_invite_token_sha256';
 
     IF stored_hash IS NULL OR stored_hash = 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR' THEN
-        RAISE LOG 'promote_to_teacher: invite system not configured';
+        RAISE LOG 'promote_to_admin: invite system not configured';
         RAISE EXCEPTION 'invite system not configured';
     END IF;
 
@@ -91,25 +91,25 @@ BEGIN
 
     -- Both sides are fixed-length hex -> comparison time is uniform.
     IF input_hash <> stored_hash THEN
-        RAISE LOG 'promote_to_teacher: bad token from %', auth.uid();
-        RAISE EXCEPTION 'Invalid teacher invite token';
+        RAISE LOG 'promote_to_admin: bad token from %', auth.uid();
+        RAISE EXCEPTION 'Invalid admin invite token';
     END IF;
 
     -- Flag the session so the role-freeze trigger permits this one write.
     PERFORM set_config('etude.allow_role_change', 'on', true);
-    UPDATE users SET role = 'teacher' WHERE id = auth.uid();
+    UPDATE users SET role = 'admin' WHERE id = auth.uid();
     PERFORM set_config('etude.allow_role_change', 'off', true);
 END;
 $$;
 
-REVOKE ALL ON FUNCTION promote_to_teacher(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION promote_to_teacher(TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION promote_to_admin(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION promote_to_admin(TEXT) TO authenticated;
 
 -- ----------------------------------------------------------------
 -- 3. Seed the hashed-token key. You will set the REAL value in the
 --    next manual step (see the guide). Old plaintext key is removed.
 -- ----------------------------------------------------------------
-DELETE FROM app_secrets WHERE key = 'teacher_invite_token';
+DELETE FROM app_secrets WHERE key = 'admin_invite_token';
 INSERT INTO app_secrets (key, value)
-VALUES ('teacher_invite_token_sha256', 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR')
+VALUES ('admin_invite_token_sha256', 'REPLACE_ME_VIA_SUPABASE_SQL_EDITOR')
 ON CONFLICT (key) DO NOTHING;

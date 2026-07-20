@@ -3,8 +3,8 @@ Regression test for the users.role authorization model.
 
 Exercises the exact attack sequence used to verify the fix live against
 Supabase (see db/schema.sql, db/hardening_patch.sql): a signed-up-but-
-otherwise-normal student must not be able to reach role='teacher' through
-any path except promote_to_teacher() with the correct invite token.
+otherwise-normal student must not be able to reach role='admin' through
+any path except promote_to_admin() with the correct invite token.
 
 Hits the live Supabase project directly over its REST API -- the same
 thing an attacker holding only the public anon key would do. Creates one
@@ -60,19 +60,19 @@ def _student_headers(jwt: str) -> dict:
     }
 
 
-def test_cannot_insert_self_as_teacher(uid: str, jwt: str, email: str) -> None:
+def test_cannot_insert_self_as_admin(uid: str, jwt: str, email: str) -> None:
     resp = requests.post(
         f"{REST_URL}/users",
         headers=_student_headers(jwt),
-        json={"id": uid, "email": email, "full_name": "x", "role": "teacher"},
+        json={"id": uid, "email": email, "full_name": "x", "role": "admin"},
     )
     assert resp.status_code >= 400, (
-        f"direct INSERT with role=teacher should be rejected by RLS, "
+        f"direct INSERT with role=admin should be rejected by RLS, "
         f"got {resp.status_code}: {resp.text}"
     )
 
 
-def test_cannot_patch_role_to_teacher(uid: str, jwt: str, email: str) -> None:
+def test_cannot_patch_role_to_admin(uid: str, jwt: str, email: str) -> None:
     # Needs an existing row -- legit self-insert as student first.
     resp = requests.post(
         f"{REST_URL}/users",
@@ -84,10 +84,10 @@ def test_cannot_patch_role_to_teacher(uid: str, jwt: str, email: str) -> None:
     resp = requests.patch(
         f"{REST_URL}/users?id=eq.{uid}",
         headers=_student_headers(jwt),
-        json={"role": "teacher"},
+        json={"role": "admin"},
     )
     assert resp.status_code >= 400, (
-        f"PATCH role=teacher should be rejected by the role-freeze trigger, "
+        f"PATCH role=admin should be rejected by the role-freeze trigger, "
         f"got {resp.status_code}: {resp.text}"
     )
 
@@ -109,14 +109,14 @@ def test_legit_profile_edit_still_works(uid: str, jwt: str) -> None:
     )
 
 
-def test_promote_to_teacher_rejects_wrong_token(uid: str, jwt: str) -> None:
+def test_promote_to_admin_rejects_wrong_token(uid: str, jwt: str) -> None:
     resp = requests.post(
-        f"{REST_URL}/rpc/promote_to_teacher",
+        f"{REST_URL}/rpc/promote_to_admin",
         headers=_student_headers(jwt),
         json={"p_invite_token": "wrong"},
     )
     assert resp.status_code >= 400, (
-        f"promote_to_teacher with a wrong token should be rejected, got "
+        f"promote_to_admin with a wrong token should be rejected, got "
         f"{resp.status_code}: {resp.text}"
     )
 
@@ -141,10 +141,10 @@ def test_get_email_by_srn_blocked_for_anon() -> None:
 def main() -> None:
     uid, jwt, email = _signup_throwaway_student()
     tests = [
-        ("cannot INSERT self as teacher", lambda: test_cannot_insert_self_as_teacher(uid, jwt, email)),
-        ("cannot PATCH role to teacher", lambda: test_cannot_patch_role_to_teacher(uid, jwt, email)),
+        ("cannot INSERT self as admin", lambda: test_cannot_insert_self_as_admin(uid, jwt, email)),
+        ("cannot PATCH role to admin", lambda: test_cannot_patch_role_to_admin(uid, jwt, email)),
         ("legit profile edit still works", lambda: test_legit_profile_edit_still_works(uid, jwt)),
-        ("promote_to_teacher rejects wrong token", lambda: test_promote_to_teacher_rejects_wrong_token(uid, jwt)),
+        ("promote_to_admin rejects wrong token", lambda: test_promote_to_admin_rejects_wrong_token(uid, jwt)),
         ("get_email_by_srn blocked for anon", test_get_email_by_srn_blocked_for_anon),
     ]
 

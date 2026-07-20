@@ -3,7 +3,7 @@
 import os
 import hashlib
 
-from services.auth_service import require_teacher
+from services.auth_service import require_admin
 from services.storage_service import upload_pdf
 from db.documents_repo import (
     create_document,
@@ -24,7 +24,7 @@ def upload_document(
     Upload a document to storage, version it, and save metadata in Supabase.
     Idempotent — skips if content hash already exists.
     """
-    teacher = require_teacher()
+    admin = require_admin()
 
     hasher = hashlib.sha256()
     with open(file_path, "rb") as f:
@@ -61,7 +61,7 @@ def upload_document(
         version = matching["version"] + 1
 
     doc = create_document(
-        uploaded_by=teacher["user_id"],
+        uploaded_by=admin["user_id"],
         title=title,
         storage_bucket="documents",
         storage_path=storage_path,

@@ -37,7 +37,7 @@ def retrieve(
     semester: int = None,
     expand_query: bool = True,
     expand_context: bool = True,
-    score_threshold: float = 0.65,
+    score_threshold: float = 0.35,
     stale_override: bool = False,
 ) -> list[dict]:
     """

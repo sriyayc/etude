@@ -8,6 +8,7 @@ from services import (
     auth_service,
     document_service,
     ingestion_service,
+    catalog_service,
     qa_service,
     quiz_service,
     flashcard_service,
@@ -250,7 +251,7 @@ class ResourceState(rx.State):
                         row.get("page_count") or 0
                     ),
                     "document_id": (
-                        row.get("document_id") or ""
+                        row.get("slides_document_id") or ""
                     ),
                 }
             )
@@ -315,7 +316,7 @@ class ResourceState(rx.State):
                 subject.get("page_count") or 0
             ),
             "document_id": (
-                subject.get("document_id") or ""
+                subject.get("slides_document_id") or ""
             ),
         }
 
@@ -386,7 +387,7 @@ class ResourceState(rx.State):
                 subject.get("page_count") or 0
             ),
             "document_id": (
-                subject.get("document_id") or ""
+                subject.get("slides_document_id") or ""
             ),
         }
 
@@ -926,7 +927,7 @@ class UserState(rx.State):
     login_error: str = ""
     login_loading: bool = False
 
-    # ---- teacher upload form fields ----
+    # ---- admin upload form fields ----
     upload_title: str = ""
     upload_document_type: str = "textbook"
     upload_subject: str = ""
@@ -1034,6 +1035,16 @@ class UserState(rx.State):
         self.login_loading = False
         return rx.redirect("/dashboard")
 
+    def clear_auth_errors(self):
+        """Call this in on_load for /login and /signup.
+
+        State persists across page navigation within a session, so an
+        error left over from a previous failed attempt on either page
+        would otherwise still be showing the next time that page loads.
+        """
+        self.login_error = ""
+        self.signup_error = ""
+
     def logout(self):
         auth_service.logout()
         self.reset()
@@ -1058,16 +1069,16 @@ class UserState(rx.State):
         self.subjects_active = stats_repo.get_subjects_active(self.user_id)
         self.leaderboard_rows = stats_repo.get_leaderboard(limit=20)
 
-    def require_teacher_role(self):
-        """Chain after load_profile in on_load for teacher-only routes."""
-        if self.role != "teacher":
+    def require_admin_role(self):
+        """Chain after load_profile in on_load for admin-only routes."""
+        if self.role != "admin":
             return rx.redirect("/dashboard")
 
     async def handle_upload(self, files: list[rx.UploadFile]):
         self.upload_error = ""
         self.upload_success = False
 
-        if self.role != "teacher":
+        if self.role != "admin":
             return rx.redirect("/dashboard")
 
         if not self.upload_title:
@@ -1098,7 +1109,7 @@ class UserState(rx.State):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(data)
 
-                document_service.upload_document(
+                doc_res = document_service.upload_document(
                     file_path=str(dest),
                     title=self.upload_title,
                     document_type=self.upload_document_type,
@@ -1112,6 +1123,35 @@ class UserState(rx.State):
                     subject=self.upload_subject,
                     semester=semester_number,
                 )
+
+                # Slides/textbook content also backs the resources-browsing
+                # UI and the quiz/flashcard/notes unit picker -- neither of
+                # those read from Qdrant, so sync them here too. Syllabus
+                # docs skip this: they go through syllabus_service instead,
+                # which extracts a real "Unit N:" outline rather than
+                # inferring one from running headers.
+                if (
+                    self.upload_document_type in ("slides", "textbook")
+                    and doc_res.get("success")
+                    and doc_res.get("document_id")
+                ):
+                    existing_subject = subjects_repo.get_subject(
+                        semester=semester_number,
+                        subject_code=self.upload_subject,
+                    )
+                    subject_name = (
+                        existing_subject.get("subject_name")
+                        if existing_subject
+                        else None
+                    ) or self.upload_title
+
+                    catalog_service.sync_catalog(
+                        pdf_path=str(dest),
+                        document_uuid=doc_res["document_id"],
+                        subject_code=self.upload_subject,
+                        subject_name=subject_name,
+                        semester=semester_number,
+                    )
         except Exception as e:
             self.upload_loading = False
             self.upload_error = str(e)

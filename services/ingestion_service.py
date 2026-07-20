@@ -1,6 +1,6 @@
 """Ingestion service."""
 
-from services.auth_service import require_teacher
+from services.auth_service import require_admin
 from ingestion.ingest import ingest_pdf
 
 
@@ -13,9 +13,9 @@ def ingest_document(
 ) -> dict:
     """
     Ingest a PDF document (extract, chunk, embed, and load to vector store).
-    Only teachers can trigger ingestion.
+    Only admins can trigger ingestion.
     """
-    require_teacher()
+    require_admin()
     return ingest_pdf(
         pdf_path=pdf_path,
         document_type=document_type,

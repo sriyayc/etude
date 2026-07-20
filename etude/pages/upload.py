@@ -1,4 +1,4 @@
-"""Upload page — teacher-only, pushes a PDF into Supabase storage + documents table."""
+"""Upload page — admin-only, pushes a PDF into Supabase storage + documents table."""
 
 import reflex as rx
 
@@ -43,7 +43,7 @@ def upload_page():
         rx.box(
 
             rx.text(
-                "// TEACHER · ADD MATERIAL",
+                "// ADMIN · ADD MATERIAL",
                 color=ACCENT,
                 font_family="monospace",
                 font_size="11px",
