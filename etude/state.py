@@ -2,6 +2,7 @@
 
 import reflex as rx
 import asyncio
+from typing import TypedDict
 
 from services import (
     auth_service,
@@ -531,14 +532,33 @@ class ResourceState(rx.State):
             self.ai_thinking = False
 
 
+class _QuizQuestion(TypedDict):
+    question: str
+    options: list[str]
+    answer: str
+    explanation: str
+
+
+class _SyllabusUnit(TypedDict):
+    unit_number: int
+    unit_title: str
+    topics: list[str]
+    topic_count: int
+
+
+class _Flashcard(TypedDict):
+    front: str
+    back: str
+
+
 class QuizState(rx.State):
     """State for the per-unit quiz page."""
 
-    units: list[dict] = []
+    units: list[_SyllabusUnit] = []
     units_error: str = ""
 
     selected_unit_title: str = ""
-    questions: list[dict] = []
+    questions: list[_QuizQuestion] = []
     quiz_sources: list[dict] = []
     quiz_loading: bool = False
     quiz_error: str = ""
@@ -698,11 +718,11 @@ class QuizState(rx.State):
 class FlashcardState(rx.State):
     """State for the per-unit flashcard page."""
 
-    units: list[dict] = []
+    units: list[_SyllabusUnit] = []
     units_error: str = ""
 
     selected_unit_title: str = ""
-    cards: list[dict] = []
+    cards: list[_Flashcard] = []
     card_sources: list[dict] = []
     cards_loading: bool = False
     cards_error: str = ""
@@ -805,7 +825,7 @@ class FlashcardState(rx.State):
 class NotesState(rx.State):
     """State for the per-unit AI-compiled revision notes page."""
 
-    units: list[dict] = []
+    units: list[_SyllabusUnit] = []
     units_error: str = ""
 
     selected_unit_title: str = ""

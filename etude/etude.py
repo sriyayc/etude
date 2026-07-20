@@ -13,7 +13,7 @@ from .pages.quiz import quiz_page
 from .pages.flashcards import flashcards_page
 from .pages.notes import notes_page
 from etude.styles.theme import FONT_STYLESHEET
-from etude.state import UserState
+from etude.state import UserState, QuizState, FlashcardState, NotesState
 
 app = rx.App(
     stylesheets=[FONT_STYLESHEET],
@@ -36,11 +36,10 @@ app.add_page(
     on_load=[UserState.load_profile, UserState.require_teacher_role],
 )
 
-# Dynamic routes — one file handles ALL semesters (1-8) and ALL subjects,
-# via the [semester] / [subject_code] URL parameters
+# Dynamic routes — handles semesters, subjects, slides, quizzes, flashcards, and notes
 app.add_page(subjects_page, route="/resources/[semester]")
 app.add_page(subject_detail_page, route="/resources/[semester]/[subject_code]")
 app.add_page(slides_viewer_page, route="/resources/[semester]/[subject_code]/slides")
-app.add_page(quiz_page, route="/resources/[semester]/[subject_code]/quiz")
-app.add_page(flashcards_page, route="/resources/[semester]/[subject_code]/flashcards")
-app.add_page(notes_page, route="/resources/[semester]/[subject_code]/notes")
+app.add_page(quiz_page, route="/resources/[semester]/[subject_code]/quiz", on_load=QuizState.load_units)
+app.add_page(flashcards_page, route="/resources/[semester]/[subject_code]/flashcards", on_load=FlashcardState.load_units)
+app.add_page(notes_page, route="/resources/[semester]/[subject_code]/notes", on_load=NotesState.load_units)
