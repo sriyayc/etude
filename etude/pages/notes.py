@@ -93,7 +93,7 @@ def unit_card(unit: rx.Var) -> rx.Component:
             align_items="start",
             width="100%",
         ),
-        on_click=NotesState.generate_notes(unit["unit_title"]),
+        on_click=NotesState.generate_notes(unit["unit_number"], unit["unit_title"]),
         padding="24px",
         border=f"1px solid {BORDER}",
         cursor="pointer",

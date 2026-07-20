@@ -75,6 +75,100 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 );
 
 -- ==========================================================
+-- UNIT-GENERATED CONTENT CACHE (quiz / flashcards / notes)
+-- Generated once per (subject, semester, unit_number) and shared by
+-- every student who opens that unit -- not regenerated per student
+-- per visit. Whichever student opens the unit first pays the
+-- LLM-generation latency; everyone after gets the cached row.
+-- ==========================================================
+CREATE TABLE IF NOT EXISTS unit_quizzes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject TEXT NOT NULL,
+    semester INTEGER NOT NULL,
+    unit_number INTEGER NOT NULL,
+    unit_title TEXT NOT NULL,
+    questions JSONB NOT NULL,
+    sources JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (subject, semester, unit_number)
+);
+
+CREATE TABLE IF NOT EXISTS unit_flashcards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject TEXT NOT NULL,
+    semester INTEGER NOT NULL,
+    unit_number INTEGER NOT NULL,
+    unit_title TEXT NOT NULL,
+    cards JSONB NOT NULL,
+    sources JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (subject, semester, unit_number)
+);
+
+CREATE TABLE IF NOT EXISTS unit_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject TEXT NOT NULL,
+    semester INTEGER NOT NULL,
+    unit_number INTEGER NOT NULL,
+    unit_title TEXT NOT NULL,
+    notes_md TEXT NOT NULL,
+    sources JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (subject, semester, unit_number)
+);
+
+ALTER TABLE unit_quizzes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unit_flashcards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unit_notes ENABLE ROW LEVEL SECURITY;
+
+-- UPDATE is needed alongside INSERT because these rows are written via
+-- upsert() -- the on-conflict path is a real UPDATE under the hood.
+GRANT SELECT, INSERT, UPDATE ON unit_quizzes TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON unit_flashcards TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON unit_notes TO authenticated;
+
+-- Any authenticated student can read; any authenticated student can
+-- write, since the whole point is that whichever student opens the
+-- unit first is the one who populates the cache for everyone else.
+DROP POLICY IF EXISTS "Authenticated read unit_quizzes" ON unit_quizzes;
+CREATE POLICY "Authenticated read unit_quizzes"
+ON unit_quizzes FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated create unit_quizzes" ON unit_quizzes;
+CREATE POLICY "Authenticated create unit_quizzes"
+ON unit_quizzes FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Needed alongside INSERT because these rows are written via upsert() --
+-- the on-conflict path is a real UPDATE under the hood.
+DROP POLICY IF EXISTS "Authenticated update unit_quizzes" ON unit_quizzes;
+CREATE POLICY "Authenticated update unit_quizzes"
+ON unit_quizzes FOR UPDATE TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated read unit_flashcards" ON unit_flashcards;
+CREATE POLICY "Authenticated read unit_flashcards"
+ON unit_flashcards FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated create unit_flashcards" ON unit_flashcards;
+CREATE POLICY "Authenticated create unit_flashcards"
+ON unit_flashcards FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated update unit_flashcards" ON unit_flashcards;
+CREATE POLICY "Authenticated update unit_flashcards"
+ON unit_flashcards FOR UPDATE TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated read unit_notes" ON unit_notes;
+CREATE POLICY "Authenticated read unit_notes"
+ON unit_notes FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Authenticated create unit_notes" ON unit_notes;
+CREATE POLICY "Authenticated create unit_notes"
+ON unit_notes FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated update unit_notes" ON unit_notes;
+CREATE POLICY "Authenticated update unit_notes"
+ON unit_notes FOR UPDATE TO authenticated USING (true);
+
+-- ==========================================================
 -- USER POINTS
 -- Computed view, not a base table -- there is no write path for
 -- points anywhere in the app; it's a live SUM over quiz_attempts.

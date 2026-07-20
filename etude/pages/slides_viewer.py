@@ -14,7 +14,6 @@ ACCENT = "#5D8AA8"
 ACCENT_LIGHT = "#7393B3"
 BORDER = "#1F3A3D"
 BACKGROUND = "#000000"
-PANEL_BG = "#0A2647"
 
 
 def toolbar_item(icon: str, label: str) -> rx.Component:
@@ -103,11 +102,11 @@ def slides_viewer_page() -> rx.Component:
 
         # ---------------- Toolbar ----------------
         rx.hstack(
-            toolbar_item("download", "DOWNLOAD"),
-            toolbar_item("eye", "VIEW IN APP"),
-            toolbar_item(
-                "square-mouse-pointer",
-                "SELECT & ASK",
+            rx.link(
+                toolbar_item("download", "DOWNLOAD"),
+                href=ResourceState.pdf_url,
+                is_external=True,
+                text_decoration="none",
             ),
 
             rx.link(
@@ -177,12 +176,9 @@ def slides_viewer_page() -> rx.Component:
 
                     rx.spacer(),
 
-                    # Do not put Reflex Vars inside a Python f-string.
                     rx.text(
-                        "slide ",
-                        ResourceState.current_slide_index + 1,
-                        " / ",
-                        ResourceState.slides.length(),
+                        ResourceState.current_subject["page_count"],
+                        " pages",
                         color=ACCENT_LIGHT,
                         font_family="monospace",
                         font_size="12px",
@@ -194,98 +190,34 @@ def slides_viewer_page() -> rx.Component:
                     align_items="center",
                 ),
 
-                rx.vstack(
-                    rx.text(
-                        "SLIDE ",
-                        ResourceState.slide_number_padded,
-                        " · MOD-",
-                        ResourceState.current_slide[
-                            "module_number"
-                        ],
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-
-                    rx.heading(
-                        ResourceState.current_slide["title"],
-                        color="white",
-                        font_family=(
-                            "'Space Grotesk', sans-serif"
-                        ),
-                        font_weight="800",
-                        font_size="28px",
-                    ),
-
-                    rx.box(
-                        rx.text(
-                            ResourceState.current_slide[
-                                "content"
-                            ],
-                            color="white",
-                            font_size="16px",
-                            line_height="1.6",
-                            white_space="pre-wrap",
-                        ),
-                        border=f"1px solid {PANEL_BG}",
-                        background=(
-                            "rgba(10, 38, 71, 0.3)"
-                        ),
-                        padding="32px",
-                        margin_top="20px",
-                        min_height="200px",
+                # The original PDF, rendered as-is via the browser's
+                # native viewer -- page navigation, zoom and search are
+                # all built in, so there's no custom PREV/NEXT here.
+                rx.cond(
+                    ResourceState.pdf_url != "",
+                    rx.el.iframe(
+                        src=ResourceState.pdf_url,
                         width="100%",
+                        height="calc(100vh - 140px)",
+                        style={"border": "none"},
                     ),
-
-                    align_items="start",
-                    padding="40px",
-                    width="100%",
-                ),
-
-                rx.hstack(
-                    rx.hstack(
-                        rx.icon(
-                            "chevron-left",
-                            size=14,
-                        ),
+                    rx.center(
                         rx.text(
-                            "PREV",
+                            "No slide PDF available for this subject.",
+                            color=ACCENT_LIGHT,
                             font_family="monospace",
-                            font_size="12px",
+                            font_size="13px",
                         ),
-                        spacing="1",
-                        on_click=ResourceState.prev_slide,
-                        cursor="pointer",
-                        color=ACCENT_LIGHT,
+                        width="100%",
+                        height="calc(100vh - 140px)",
                     ),
-
-                    rx.spacer(),
-
-                    rx.hstack(
-                        rx.text(
-                            "NEXT",
-                            font_family="monospace",
-                            font_size="12px",
-                        ),
-                        rx.icon(
-                            "chevron-right",
-                            size=14,
-                        ),
-                        spacing="1",
-                        on_click=ResourceState.next_slide,
-                        cursor="pointer",
-                        color=ACCENT_LIGHT,
-                    ),
-
-                    width="100%",
-                    padding="16px 40px",
-                    border_top=f"1px solid {BORDER}",
                 ),
 
                 flex="1",
                 align_items="start",
                 spacing="0",
                 min_width="0",
+                min_height="0",
             ),
 
             # ============================================================

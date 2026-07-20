@@ -9,6 +9,7 @@ from services import (
     document_service,
     ingestion_service,
     catalog_service,
+    source_service,
     qa_service,
     quiz_service,
     flashcard_service,
@@ -92,7 +93,7 @@ class ResourceState(rx.State):
     # ---------------------------------------------------------
 
     slides: list[dict] = []
-    current_slide_index: int = 0
+    pdf_url: str = ""
 
     # ---------------------------------------------------------
     # Slide AI chat
@@ -128,56 +129,6 @@ class ResourceState(rx.State):
             ]
 
         return self.subjects
-
-    @rx.var
-    def current_slide(self) -> dict:
-        """Return the currently selected slide safely."""
-
-        if not self.slides:
-            return {
-                "title": "No slides available",
-                "content": (
-                    "No slide content has been loaded for this subject."
-                ),
-                "module_number": 0,
-                "slide_number": 0,
-            }
-
-        index = min(
-            max(self.current_slide_index, 0),
-            len(self.slides) - 1,
-        )
-
-        slide = self.slides[index]
-
-        return {
-            **slide,
-            "title": slide.get("title") or "Untitled slide",
-            "content": slide.get("content") or "",
-            "module_number": slide.get("module_number") or 0,
-            "slide_number": slide.get("slide_number") or index + 1,
-        }
-
-    @rx.var
-    def slide_number_padded(self) -> str:
-        """Return a two-digit slide number."""
-
-        if not self.slides:
-            return "00"
-
-        return str(self.current_slide_index + 1).zfill(2)
-
-    @rx.var
-    def slide_counter(self) -> str:
-        """Return a safe slide counter label."""
-
-        if not self.slides:
-            return "slide 0 / 0"
-
-        return (
-            f"slide {self.current_slide_index + 1} "
-            f"/ {len(self.slides)}"
-        )
 
     @rx.var
     def quiz_url(self) -> str:
@@ -329,9 +280,9 @@ class ResourceState(rx.State):
         """Load the active subject and its slides."""
 
         self.resource_error = ""
-        self.current_slide_index = 0
         self.chat_messages = []
         self.chat_input = ""
+        self.pdf_url = ""
 
         try:
             semester_number = int(self.semester)
@@ -401,6 +352,13 @@ class ResourceState(rx.State):
             return
 
         try:
+            self.pdf_url = source_service.get_document_url(str(document_id)) or ""
+        except Exception:
+            # The extracted-text fallback view still works without a
+            # PDF link, so don't let a signed-URL failure blank the page.
+            self.pdf_url = ""
+
+        try:
             rows = subjects_repo.list_slides(
                 document_id=str(document_id)
             )
@@ -440,24 +398,6 @@ class ResourceState(rx.State):
             "slide_count": len(normalized_slides),
         }
 
-    @rx.event
-    def prev_slide(self):
-        """Move to the previous slide."""
-
-        if self.current_slide_index > 0:
-            self.current_slide_index -= 1
-
-    @rx.event
-    def next_slide(self):
-        """Move to the next slide."""
-
-        if (
-            self.slides
-            and self.current_slide_index
-            < len(self.slides) - 1
-        ):
-            self.current_slide_index += 1
-
     # ---------------------------------------------------------
     # Chat events
     # ---------------------------------------------------------
@@ -492,16 +432,10 @@ class ResourceState(rx.State):
         yield
 
         try:
-            semester_number = int(self.semester)
-        except (TypeError, ValueError):
-            semester_number = 1
-
-        try:
-            result = qa_service.ask_question(
-                query=question,
-                subject=str(self.subject_code),
-                semester=semester_number,
-            )
+            # Unscoped on purpose -- Etude AI answers from every ingested
+            # document across every subject and semester, not just the
+            # one the student happens to be viewing.
+            result = qa_service.ask_question(query=question)
             answer = result.get("answer") or (
                 "I couldn't find anything grounded in your "
                 "syllabus for that."
@@ -626,7 +560,7 @@ class QuizState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_quiz(self, unit_title: str):
+    def generate_quiz(self, unit_number: int, unit_title: str):
         self.quiz_error = ""
         self.quiz_loading = True
         self.selected_unit_title = unit_title
@@ -646,6 +580,7 @@ class QuizState(rx.State):
                 topic=unit_title,
                 subject=str(self.subject_code),
                 semester=semester_number,
+                unit_number=unit_number,
             )
         except Exception as exc:
             self.quiz_loading = False
@@ -765,7 +700,7 @@ class FlashcardState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_flashcards(self, unit_title: str):
+    def generate_flashcards(self, unit_number: int, unit_title: str):
         self.cards_error = ""
         self.cards_loading = True
         self.selected_unit_title = unit_title
@@ -783,6 +718,7 @@ class FlashcardState(rx.State):
                 topic=unit_title,
                 subject=str(self.subject_code),
                 semester=semester_number,
+                unit_number=unit_number,
             )
         except Exception as exc:
             self.cards_loading = False
@@ -856,7 +792,7 @@ class NotesState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_notes(self, unit_title: str):
+    def generate_notes(self, unit_number: int, unit_title: str):
         self.notes_error = ""
         self.notes_loading = True
         self.selected_unit_title = unit_title
@@ -872,6 +808,7 @@ class NotesState(rx.State):
                 topic=unit_title,
                 subject=str(self.subject_code),
                 semester=semester_number,
+                unit_number=unit_number,
             )
         except Exception as exc:
             self.notes_loading = False

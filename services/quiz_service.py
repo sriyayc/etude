@@ -1,25 +1,48 @@
 """Quiz service."""
 
 from services.auth_service import get_current_user
-from features.quiz import generate_quiz
+from features.quiz import generate_quiz as _generate_quiz
 from db.quiz_attempts_repo import create_attempt, get_user_attempts
+from db import generated_content_repo
 
 
 def get_quiz(
     topic: str,
     subject: str,
     semester: int,
+    unit_number: int,
     num_questions: int = 5,
 ) -> dict:
     """
-    Generate a quiz on a topic.
+    Get the quiz for a unit -- generated once and cached, not
+    regenerated per student per visit.
     """
-    return generate_quiz(
+    cached = generated_content_repo.get_cached_quiz(subject, semester, unit_number)
+    if cached:
+        return {
+            "success": True,
+            "questions": cached["questions"],
+            "sources": cached.get("sources") or [],
+        }
+
+    result = _generate_quiz(
         topic=topic,
         subject=subject,
         semester=semester,
         num_questions=num_questions,
     )
+
+    if result.get("success"):
+        generated_content_repo.save_quiz(
+            subject=subject,
+            semester=semester,
+            unit_number=unit_number,
+            unit_title=topic,
+            questions=result["questions"],
+            sources=result.get("sources") or [],
+        )
+
+    return result
 
 
 def log_attempt(
