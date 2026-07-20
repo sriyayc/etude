@@ -2,6 +2,7 @@
 
 import reflex as rx
 
+from etude.components.ai_sidebar import ai_sidebar
 from etude.components.topbar import topbar
 from etude.state import FlashcardState, ResourceState, UserState
 
@@ -10,52 +11,6 @@ ACCENT_LIGHT = "#7393B3"
 BORDER = "#1F3A3D"
 BACKGROUND = "#000000"
 PANEL_BG = "#0A2647"
-
-
-def chat_bubble(message: rx.Var) -> rx.Component:
-    """Render one AI or user chat message."""
-    is_user = message["role"] == "user"
-
-    return rx.box(
-        rx.text(
-            message["content"],
-            color="white",
-            font_size="14px",
-            line_height="1.5",
-            white_space="pre-wrap",
-        ),
-        background=rx.cond(
-            is_user,
-            "rgba(93, 138, 168, 0.12)",
-            "transparent",
-        ),
-        border=rx.cond(
-            is_user,
-            f"1px solid {BORDER}",
-            "none",
-        ),
-        padding="12px",
-        margin_bottom="10px",
-        width="100%",
-    )
-
-
-def suggestion_chip(text: str) -> rx.Component:
-    """Render a preset question button."""
-    return rx.box(
-        rx.text(text),
-        on_click=ResourceState.ask_ai(text),
-        cursor="pointer",
-        border=f"1px solid {BORDER}",
-        color=ACCENT_LIGHT,
-        font_family="monospace",
-        font_size="12px",
-        padding="8px 12px",
-        _hover={
-            "border_color": ACCENT,
-            "color": "white",
-        },
-    )
 
 
 def unit_card(unit: rx.Var) -> rx.Component:
@@ -342,128 +297,32 @@ def flashcards_page() -> rx.Component:
             ),
 
             # Right panel - Grounded AI Sidebar
-            rx.vstack(
-                rx.hstack(
-                    rx.icon("sparkles", size=14, color=ACCENT),
-                    rx.text(
-                        "ETUDE AI",
-                        color="white",
-                        font_weight="700",
-                        font_size="14px",
-                    ),
-                    rx.box(
-                        "grounded",
-                        background="rgba(93, 138, 168, 0.2)",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="10px",
-                        padding="2px 6px",
-                        margin_left="6px",
-                    ),
-                    width="100%",
-                    padding="14px",
-                    border_bottom=f"1px solid {BORDER}",
-                    align_items="center",
+            ai_sidebar(
+                context_suffix="flashcards",
+                welcome_text=(
+                    "I'm Etude AI — strictly grounded in your syllabus. "
+                    "Ask me anything about the flashcard terms or concepts. "
+                    "I'll explain any topic step by step."
                 ),
-
-                rx.text(
-                    "CONTEXT",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="10px",
-                    padding="14px 14px 0",
-                ),
-
-                rx.text(
-                    ResourceState.subject_code,
-                    " · flashcards",
-                    color="white",
-                    font_family="monospace",
-                    font_size="13px",
-                    padding="0 14px 14px",
-                ),
-
-                rx.vstack(
-                    rx.foreach(
-                        ResourceState.chat_messages,
-                        chat_bubble,
-                    ),
-
-                    rx.cond(
-                        ResourceState.chat_messages.length() == 0,
-                        rx.box(
-                            rx.text(
-                                "I'm Etude AI — strictly grounded in your syllabus. Ask me anything about the flashcard terms or concepts. I'll explain any topic step by step.",
-                                color="white",
-                                font_size="13px",
-                                line_height="1.6",
-                            ),
-                            background="rgba(93, 138, 168, 0.1)",
-                            border=f"1px solid {BORDER}",
-                            padding="14px",
-                            width="100%",
+                suggestions=[
+                    (
+                        "Help me with this unit",
+                        rx.cond(
+                            FlashcardState.selected_unit_title != "",
+                            f"Explain the key terms in "
+                            f"{FlashcardState.selected_unit_title} for "
+                            f"{ResourceState.current_subject['subject_name']}",
+                            f"Explain the key concepts covered in "
+                            f"{ResourceState.current_subject['subject_name']}",
                         ),
-                        rx.fragment(),
                     ),
-
-                    rx.cond(
-                        ResourceState.ai_thinking,
-                        rx.text(
-                            "thinking…",
-                            color=ACCENT_LIGHT,
-                            font_family="monospace",
-                            font_size="12px",
-                        ),
-                        rx.fragment(),
+                    (
+                        "Common pitfalls?",
+                        f"What are common pitfalls or misconceptions "
+                        f"students have when studying "
+                        f"{ResourceState.current_subject['subject_name']}?",
                     ),
-
-                    width="100%",
-                    padding="0 14px",
-                    flex="1",
-                    overflow_y="auto",
-                    align_items="start",
-                ),
-
-                rx.hstack(
-                    suggestion_chip("Help me with cards"),
-                    suggestion_chip("Expand on concept"),
-                    spacing="2",
-                    padding="10px 14px",
-                    flex_wrap="wrap",
-                ),
-
-                rx.hstack(
-                    rx.input(
-                        placeholder="Ask anything from your syllabus…",
-                        value=ResourceState.chat_input,
-                        on_change=ResourceState.set_chat_input,
-                        background="black",
-                        border=f"1px solid {BORDER}",
-                        color="white",
-                        font_family="monospace",
-                        font_size="13px",
-                        flex="1",
-                    ),
-                    rx.icon(
-                        "send",
-                        size=16,
-                        color=ACCENT,
-                        cursor="pointer",
-                        on_click=ResourceState.ask_ai(""),
-                    ),
-                    width="100%",
-                    padding="14px",
-                    border_top=f"1px solid {BORDER}",
-                    align_items="center",
-                ),
-
-                width="420px",
-                min_width="420px",
-                background="#050D18",
-                border_left=f"1px solid {BORDER}",
-                align_items="start",
-                spacing="0",
-                height="100%",
+                ],
             ),
 
             width="100%",

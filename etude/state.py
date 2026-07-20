@@ -466,6 +466,14 @@ class ResourceState(rx.State):
         finally:
             self.ai_thinking = False
 
+    @rx.event
+    def handle_chat_key(self, key: str, _key_info: dict | None = None):
+        """Submit the chat input when Enter is pressed (input's on_change
+        alone doesn't wire up a submit -- only the send icon click did)."""
+
+        if key == "Enter":
+            return ResourceState.ask_ai("")
+
 
 class _QuizQuestion(TypedDict):
     question: str
