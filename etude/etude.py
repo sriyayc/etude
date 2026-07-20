@@ -9,6 +9,9 @@ from .pages.subjects import subjects_page
 from .pages.subject_detail import subject_detail_page
 from .pages.slides_viewer import slides_viewer_page
 from .pages.upload import upload_page
+from .pages.quiz import quiz_page
+from .pages.flashcards import flashcards_page
+from .pages.notes import notes_page
 from etude.styles.theme import FONT_STYLESHEET
 from etude.state import UserState
 
@@ -38,3 +41,6 @@ app.add_page(
 app.add_page(subjects_page, route="/resources/[semester]")
 app.add_page(subject_detail_page, route="/resources/[semester]/[subject_code]")
 app.add_page(slides_viewer_page, route="/resources/[semester]/[subject_code]/slides")
+app.add_page(quiz_page, route="/resources/[semester]/[subject_code]/quiz")
+app.add_page(flashcards_page, route="/resources/[semester]/[subject_code]/flashcards")
+app.add_page(notes_page, route="/resources/[semester]/[subject_code]/notes")

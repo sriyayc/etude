@@ -370,4 +370,10 @@ def _deduplicate(chunks: list[dict]) -> list[dict]:
 
 def _log(msg: str) -> None:
     """Simple timestamped log. Replace with proper logger in production."""
-    print(f"[retriever] {msg}")
+    try:
+        print(f"[retriever] {msg}")
+    except UnicodeEncodeError:
+        # Windows consoles default to cp1252, which can't encode the
+        # arrows used in these messages. Never let logging crash the
+        # actual retrieval call.
+        print(f"[retriever] {msg}".encode("ascii", "replace").decode("ascii"))

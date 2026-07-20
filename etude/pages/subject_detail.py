@@ -95,8 +95,13 @@ def subject_detail_page():
                 ),
                 rx.spacer(),
                 rx.link(
+                    rx.hstack(rx.text("→ FLASHCARDS", font_family="monospace", font_size="12px"), spacing="1"),
+                    href=f"/resources/{semester}/{subject_code}/flashcards", color=ACCENT,
+                ),
+                rx.link(
                     rx.hstack(rx.text("→ JUMP TO QUIZ", font_family="monospace", font_size="12px"), spacing="1"),
                     href=f"/resources/{semester}/{subject_code}/quiz", color=ACCENT,
+                    margin_left="32px",
                 ),
                 width="100%",
                 padding="20px 48px",

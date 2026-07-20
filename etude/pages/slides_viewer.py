@@ -109,7 +109,15 @@ def slides_viewer_page() -> rx.Component:
                 "square-mouse-pointer",
                 "SELECT & ASK",
             ),
-            toolbar_item("layers", "FLASHCARDS"),
+
+            rx.link(
+                toolbar_item("layers", "FLASHCARDS"),
+                href=(
+                    f"/resources/{ResourceState.semester}/"
+                    f"{ResourceState.subject_code}/flashcards"
+                ),
+                text_decoration="none",
+            ),
 
             rx.link(
                 toolbar_item(

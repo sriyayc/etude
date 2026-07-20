@@ -3,11 +3,61 @@
 import reflex as rx
 import asyncio
 
-from services import auth_service, document_service
-from db import stats_repo, subjects_repo 
+from services import (
+    auth_service,
+    document_service,
+    ingestion_service,
+    qa_service,
+    quiz_service,
+    flashcard_service,
+    notes_service,
+)
+from db import stats_repo, subjects_repo, syllabus_repo
 
 
-import reflex as rx
+def _load_units(subject: str, semester: int) -> list[dict]:
+    """Group syllabus_topics rows into units for topic pickers.
+
+    Shared by QuizState/FlashcardState/NotesState so "pick a unit, then
+    generate" only has one implementation.
+    """
+
+    try:
+        rows = syllabus_repo.list_current_topics(
+            subject=subject, semester=semester
+        )
+    except Exception:
+        return []
+
+    units: dict[int, dict] = {}
+
+    for row in rows:
+        unit_number = row.get("unit_number") or 0
+
+        if unit_number not in units:
+            units[unit_number] = {
+                "unit_number": unit_number,
+                "unit_title": (
+                    row.get("unit_title") or f"Unit {unit_number}"
+                ),
+                "topics": [],
+            }
+
+        topic = row.get("topic")
+
+        if topic:
+            units[unit_number]["topics"].append(topic)
+
+    result = sorted(units.values(), key=lambda u: u["unit_number"])
+
+    # Precompute topic_count server-side: indexing a generically-typed
+    # dict Var client-side (unit["topics"].length()) produces an `Any`
+    # type Reflex can't call .length() on -- only .foreach()-able/typed
+    # Vars support that. Simplest fix is to never need it client-side.
+    for unit in result:
+        unit["topic_count"] = len(unit["topics"])
+
+    return result
 
 
 class ResourceState(rx.State):
@@ -418,7 +468,7 @@ class ResourceState(rx.State):
 
     @rx.event
     def ask_ai(self, preset_question: str = ""):
-        """Temporarily handle a question about the current slide."""
+        """Ask the RAG-grounded AI about the current subject."""
 
         question = (
             preset_question.strip()
@@ -437,37 +487,392 @@ class ResourceState(rx.State):
 
         self.chat_input = ""
         self.ai_thinking = True
+        yield
 
         try:
-            slide_title = self.current_slide.get(
-                "title",
-                "the current slide",
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        try:
+            result = qa_service.ask_question(
+                query=question,
+                subject=str(self.subject_code),
+                semester=semester_number,
+            )
+            answer = result.get("answer") or (
+                "I couldn't find anything grounded in your "
+                "syllabus for that."
             )
 
-            response = (
-                "AI integration is not connected yet. "
-                f"You asked about {slide_title}: {question}"
-            )
+            if result.get("sources"):
+                cited = ", ".join(
+                    f"{s['source_file']} (p.{s['page_number']})"
+                    for s in result["sources"][:3]
+                )
+                answer = f"{answer}\n\nSources: {cited}"
 
             self.chat_messages.append(
                 {
                     "role": "assistant",
-                    "content": response,
+                    "content": answer,
                 }
             )
 
-        except Exception:
+        except Exception as exc:
             self.chat_messages.append(
                 {
                     "role": "assistant",
-                    "content": (
-                        "I could not process that question."
-                    ),
+                    "content": f"I could not process that question ({exc}).",
                 }
             )
 
         finally:
             self.ai_thinking = False
+
+
+class QuizState(rx.State):
+    """State for the per-unit quiz page."""
+
+    units: list[dict] = []
+    units_error: str = ""
+
+    selected_unit_title: str = ""
+    questions: list[dict] = []
+    quiz_sources: list[dict] = []
+    quiz_loading: bool = False
+    quiz_error: str = ""
+
+    current_index: int = 0
+    answers: list[str] = []
+    submitted: bool = False
+    score: int = 0
+
+    @rx.var
+    def has_quiz(self) -> bool:
+        return len(self.questions) > 0
+
+    @rx.var
+    def current_question(self) -> dict:
+        if not self.questions:
+            return {
+                "question": "",
+                "options": [],
+                "answer": "",
+                "explanation": "",
+            }
+
+        index = min(max(self.current_index, 0), len(self.questions) - 1)
+        return self.questions[index]
+
+    @rx.var
+    def current_question_options(self) -> list[str]:
+        # rx.foreach needs a concretely-typed list Var -- indexing
+        # current_question["options"] directly yields `Any`, which
+        # foreach refuses. This gives it a properly typed list instead.
+        return self.current_question.get("options") or []
+
+    @rx.var
+    def selected_answer(self) -> str:
+        if not self.answers or self.current_index >= len(self.answers):
+            return ""
+        return self.answers[self.current_index]
+
+    @rx.var
+    def progress_label(self) -> str:
+        if not self.questions:
+            return "0 / 0"
+        return f"{self.current_index + 1} / {len(self.questions)}"
+
+    @rx.var
+    def is_last_question(self) -> bool:
+        return bool(self.questions) and self.current_index == len(self.questions) - 1
+
+    @rx.event
+    def load_units(self):
+        self.units_error = ""
+        self.questions = []
+        self.selected_unit_title = ""
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        self.units = _load_units(str(self.subject_code), semester_number)
+
+        if not self.units:
+            self.units_error = "No syllabus units found for this subject yet."
+
+    @rx.event
+    def generate_quiz(self, unit_title: str):
+        self.quiz_error = ""
+        self.quiz_loading = True
+        self.selected_unit_title = unit_title
+        self.current_index = 0
+        self.answers = []
+        self.submitted = False
+        self.score = 0
+        yield
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        try:
+            result = quiz_service.get_quiz(
+                topic=unit_title,
+                subject=str(self.subject_code),
+                semester=semester_number,
+            )
+        except Exception as exc:
+            self.quiz_loading = False
+            self.quiz_error = str(exc)
+            return
+
+        if not result.get("success"):
+            self.quiz_loading = False
+            self.quiz_error = (
+                result.get("message") or "Could not generate a quiz."
+            )
+            self.questions = []
+            return
+
+        self.questions = result.get("questions") or []
+        self.quiz_sources = result.get("sources") or []
+        self.answers = ["" for _ in self.questions]
+        self.quiz_loading = False
+
+    @rx.event
+    def select_answer(self, option: str):
+        if self.submitted:
+            return
+        if 0 <= self.current_index < len(self.answers):
+            self.answers[self.current_index] = option
+
+    @rx.event
+    def next_question(self):
+        if self.current_index < len(self.questions) - 1:
+            self.current_index += 1
+
+    @rx.event
+    def prev_question(self):
+        if self.current_index > 0:
+            self.current_index -= 1
+
+    @rx.event
+    def submit_quiz(self):
+        score = 0
+        for index, question in enumerate(self.questions):
+            picked = self.answers[index] if index < len(self.answers) else ""
+            if picked and picked == question.get("answer"):
+                score += 1
+
+        self.score = score
+        self.submitted = True
+
+        try:
+            quiz_service.log_attempt(
+                topic_name=self.selected_unit_title,
+                score=score,
+                total_questions=len(self.questions),
+                questions=self.questions,
+            )
+        except Exception:
+            pass
+
+    @rx.event
+    def retake_quiz(self):
+        self.current_index = 0
+        self.answers = ["" for _ in self.questions]
+        self.submitted = False
+        self.score = 0
+
+    @rx.event
+    def back_to_units(self):
+        self.questions = []
+        self.selected_unit_title = ""
+
+
+class FlashcardState(rx.State):
+    """State for the per-unit flashcard page."""
+
+    units: list[dict] = []
+    units_error: str = ""
+
+    selected_unit_title: str = ""
+    cards: list[dict] = []
+    card_sources: list[dict] = []
+    cards_loading: bool = False
+    cards_error: str = ""
+
+    current_index: int = 0
+    is_flipped: bool = False
+
+    @rx.var
+    def has_cards(self) -> bool:
+        return len(self.cards) > 0
+
+    @rx.var
+    def current_card(self) -> dict:
+        if not self.cards:
+            return {"front": "", "back": ""}
+        index = min(max(self.current_index, 0), len(self.cards) - 1)
+        return self.cards[index]
+
+    @rx.var
+    def progress_label(self) -> str:
+        if not self.cards:
+            return "0 / 0"
+        return f"{self.current_index + 1} / {len(self.cards)}"
+
+    @rx.event
+    def load_units(self):
+        self.units_error = ""
+        self.cards = []
+        self.selected_unit_title = ""
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        self.units = _load_units(str(self.subject_code), semester_number)
+
+        if not self.units:
+            self.units_error = "No syllabus units found for this subject yet."
+
+    @rx.event
+    def generate_flashcards(self, unit_title: str):
+        self.cards_error = ""
+        self.cards_loading = True
+        self.selected_unit_title = unit_title
+        self.current_index = 0
+        self.is_flipped = False
+        yield
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        try:
+            result = flashcard_service.get_flashcards(
+                topic=unit_title,
+                subject=str(self.subject_code),
+                semester=semester_number,
+            )
+        except Exception as exc:
+            self.cards_loading = False
+            self.cards_error = str(exc)
+            return
+
+        if not result.get("success"):
+            self.cards_loading = False
+            self.cards_error = (
+                result.get("message") or "Could not generate flashcards."
+            )
+            self.cards = []
+            return
+
+        self.cards = result.get("cards") or []
+        self.card_sources = result.get("sources") or []
+        self.cards_loading = False
+
+    @rx.event
+    def flip_card(self):
+        self.is_flipped = not self.is_flipped
+
+    @rx.event
+    def next_card(self):
+        if self.current_index < len(self.cards) - 1:
+            self.current_index += 1
+            self.is_flipped = False
+
+    @rx.event
+    def prev_card(self):
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.is_flipped = False
+
+    @rx.event
+    def back_to_units(self):
+        self.cards = []
+        self.selected_unit_title = ""
+
+
+class NotesState(rx.State):
+    """State for the per-unit AI-compiled revision notes page."""
+
+    units: list[dict] = []
+    units_error: str = ""
+
+    selected_unit_title: str = ""
+    notes_md: str = ""
+    notes_sources: list[dict] = []
+    notes_loading: bool = False
+    notes_error: str = ""
+
+    @rx.var
+    def has_notes(self) -> bool:
+        return bool(self.notes_md)
+
+    @rx.event
+    def load_units(self):
+        self.units_error = ""
+        self.notes_md = ""
+        self.selected_unit_title = ""
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        self.units = _load_units(str(self.subject_code), semester_number)
+
+        if not self.units:
+            self.units_error = "No syllabus units found for this subject yet."
+
+    @rx.event
+    def generate_notes(self, unit_title: str):
+        self.notes_error = ""
+        self.notes_loading = True
+        self.selected_unit_title = unit_title
+        yield
+
+        try:
+            semester_number = int(self.semester)
+        except (TypeError, ValueError):
+            semester_number = 1
+
+        try:
+            result = notes_service.get_revision_notes(
+                topic=unit_title,
+                subject=str(self.subject_code),
+                semester=semester_number,
+            )
+        except Exception as exc:
+            self.notes_loading = False
+            self.notes_error = str(exc)
+            return
+
+        if not result.get("success"):
+            self.notes_loading = False
+            self.notes_error = (
+                result.get("message") or "Could not generate notes."
+            )
+            self.notes_md = ""
+            return
+
+        self.notes_md = result.get("notes_md") or ""
+        self.notes_sources = result.get("sources") or []
+        self.notes_loading = False
+
+    @rx.event
+    def back_to_units(self):
+        self.notes_md = ""
+        self.selected_unit_title = ""
 
 
 class UserState(rx.State):
@@ -676,6 +1081,13 @@ class UserState(rx.State):
                 document_service.upload_document(
                     file_path=str(dest),
                     title=self.upload_title,
+                    document_type=self.upload_document_type,
+                    subject=self.upload_subject,
+                    semester=semester_number,
+                )
+
+                ingestion_service.ingest_document(
+                    pdf_path=str(dest),
                     document_type=self.upload_document_type,
                     subject=self.upload_subject,
                     semester=semester_number,
