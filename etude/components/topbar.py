@@ -33,11 +33,26 @@ def nav_tab(icon: str, label: str, href: str, active: bool = False):
     )
 
 
-def topbar(breadcrumb: str, srn: str = "", active: str = ""):
+def topbar(breadcrumb: str, srn: str = "", active: str = "", back_href: str = None):
 
     return rx.hstack(
 
         rx.hstack(
+            # Back arrow — only shows when back_href is provided
+            rx.cond(
+                back_href is not None,
+                rx.link(
+                    rx.hstack(
+                        rx.icon("arrow-left", size=16, color=ACCENT_LIGHT),
+                        spacing="1",
+                        align_items="center",
+                    ),
+                    href=back_href,
+                    _hover={"color": "white"},
+                    margin_right="4px",
+                ),
+                rx.fragment(),
+            ),
             rx.image(src="/logo.png", height="28px", width="auto"),
             rx.text("/PESU", color=ACCENT, font_family="monospace",
                     font_size="12px", letter_spacing="0.1em"),
