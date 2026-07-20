@@ -18,53 +18,22 @@ PANEL_BG = "#0A2647"
 
 
 def toolbar_item(icon: str, label: str) -> rx.Component:
-    """Render one toolbar action."""
-
     return rx.hstack(
-        rx.icon(
-            icon,
-            size=14,
-            color=ACCENT_LIGHT,
-        ),
-        rx.text(
-            label,
-            color=ACCENT_LIGHT,
-            font_family="monospace",
-            font_size="12px",
-            letter_spacing="0.05em",
-        ),
+        rx.icon(icon, size=14, color=ACCENT_LIGHT),
+        rx.text(label, color=ACCENT_LIGHT, font_family="monospace", font_size="12px", letter_spacing="0.05em"),
         spacing="2",
         padding="8px 14px",
         cursor="pointer",
-        _hover={
-            "color": "white",
-        },
+        _hover={"color": "white"},
     )
 
 
 def chat_bubble(message: rx.Var) -> rx.Component:
-    """Render one AI or user chat message."""
-
     is_user = message["role"] == "user"
-
     return rx.box(
-        rx.text(
-            message["content"],
-            color="white",
-            font_size="14px",
-            line_height="1.5",
-            white_space="pre-wrap",
-        ),
-        background=rx.cond(
-            is_user,
-            "rgba(93, 138, 168, 0.12)",
-            "transparent",
-        ),
-        border=rx.cond(
-            is_user,
-            f"1px solid {BORDER}",
-            "none",
-        ),
+        rx.text(message["content"], color="white", font_size="14px", line_height="1.5", white_space="pre-wrap"),
+        background=rx.cond(is_user, "rgba(93, 138, 168, 0.12)", "transparent"),
+        border=rx.cond(is_user, f"1px solid {BORDER}", "none"),
         padding="12px",
         margin_bottom="10px",
         width="100%",
@@ -72,11 +41,8 @@ def chat_bubble(message: rx.Var) -> rx.Component:
 
 
 def suggestion_chip(text: str) -> rx.Component:
-    """Render a preset question button."""
-
     return rx.box(
         rx.text(text),
-        # Pass the string argument explicitly.
         on_click=ResourceState.ask_ai(text),
         cursor="pointer",
         border=f"1px solid {BORDER}",
@@ -84,61 +50,42 @@ def suggestion_chip(text: str) -> rx.Component:
         font_family="monospace",
         font_size="12px",
         padding="8px 12px",
-        _hover={
-            "border_color": ACCENT,
-            "color": "white",
-        },
+        _hover={"border_color": ACCENT, "color": "white"},
     )
 
 
 def slides_viewer_page() -> rx.Component:
-    """Render the slide viewer page."""
-
     return rx.box(
         topbar(
             breadcrumb="slides",
             active="resources",
             srn=UserState.srn,
+            back_href=f"/resources/{ResourceState.semester}/{ResourceState.subject_code}",
         ),
 
         # ---------------- Toolbar ----------------
         rx.hstack(
             toolbar_item("download", "DOWNLOAD"),
             toolbar_item("eye", "VIEW IN APP"),
-            toolbar_item(
-                "square-mouse-pointer",
-                "SELECT & ASK",
-            ),
-            toolbar_item("layers", "FLASHCARDS"),
-
+            toolbar_item("square-mouse-pointer", "SELECT & ASK"),
             rx.link(
-                toolbar_item(
-                    "clipboard-check",
-                    "QUIZ",
-                ),
+                toolbar_item("layers", "FLASHCARDS"),
+                href=f"/resources/{ResourceState.semester}/{ResourceState.subject_code}/flashcards",
+                text_decoration="none",
+            ),
+            rx.link(
+                toolbar_item("clipboard-check", "QUIZ"),
                 href=ResourceState.quiz_url,
                 text_decoration="none",
             ),
-
             rx.spacer(),
-
             rx.hstack(
-                rx.icon(
-                    "sparkles",
-                    size=14,
-                    color=ACCENT,
-                ),
-                rx.text(
-                    "ETUDE AI · ON",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="12px",
-                ),
+                rx.icon("sparkles", size=14, color=ACCENT),
+                rx.text("ETUDE AI · ON", color=ACCENT, font_family="monospace", font_size="12px"),
                 spacing="1",
                 border=f"1px solid {ACCENT}",
                 padding="8px 14px",
             ),
-
             width="100%",
             padding="10px 24px",
             border_bottom=f"1px solid {BORDER}",
@@ -147,29 +94,12 @@ def slides_viewer_page() -> rx.Component:
 
         # ---------------- Main content ----------------
         rx.hstack(
-            # ============================================================
             # Slide area
-            # ============================================================
             rx.vstack(
                 rx.hstack(
-                    rx.text(
-                        "LECTURE SLIDES",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-
-                    rx.text(
-                        ResourceState.current_subject[
-                            "subject_name"
-                        ],
-                        color="white",
-                        font_size="13px",
-                    ),
-
+                    rx.text("LECTURE SLIDES", color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
+                    rx.text(ResourceState.current_subject["subject_name"], color="white", font_size="13px"),
                     rx.spacer(),
-
-                    # Do not put Reflex Vars inside a Python f-string.
                     rx.text(
                         "slide ",
                         ResourceState.current_slide_index + 1,
@@ -179,128 +109,83 @@ def slides_viewer_page() -> rx.Component:
                         font_family="monospace",
                         font_size="12px",
                     ),
-
                     width="100%",
                     padding="14px 24px",
                     border_bottom=f"1px solid {BORDER}",
                     align_items="center",
                 ),
-
                 rx.vstack(
                     rx.text(
                         "SLIDE ",
                         ResourceState.slide_number_padded,
                         " · MOD-",
-                        ResourceState.current_slide[
-                            "module_number"
-                        ],
+                        ResourceState.current_slide["module_number"],
                         color=ACCENT,
                         font_family="monospace",
                         font_size="12px",
                     ),
-
                     rx.heading(
                         ResourceState.current_slide["title"],
                         color="white",
-                        font_family=(
-                            "'Space Grotesk', sans-serif"
-                        ),
+                        font_family="'Space Grotesk', sans-serif",
                         font_weight="800",
                         font_size="28px",
                     ),
-
                     rx.box(
                         rx.text(
-                            ResourceState.current_slide[
-                                "content"
-                            ],
+                            ResourceState.current_slide["content"],
                             color="white",
                             font_size="16px",
                             line_height="1.6",
                             white_space="pre-wrap",
                         ),
                         border=f"1px solid {PANEL_BG}",
-                        background=(
-                            "rgba(10, 38, 71, 0.3)"
-                        ),
+                        background="rgba(10, 38, 71, 0.3)",
                         padding="32px",
                         margin_top="20px",
                         min_height="200px",
                         width="100%",
                     ),
-
                     align_items="start",
                     padding="40px",
                     width="100%",
                 ),
-
                 rx.hstack(
                     rx.hstack(
-                        rx.icon(
-                            "chevron-left",
-                            size=14,
-                        ),
-                        rx.text(
-                            "PREV",
-                            font_family="monospace",
-                            font_size="12px",
-                        ),
+                        rx.icon("chevron-left", size=14),
+                        rx.text("PREV", font_family="monospace", font_size="12px"),
                         spacing="1",
                         on_click=ResourceState.prev_slide,
                         cursor="pointer",
                         color=ACCENT_LIGHT,
                     ),
-
                     rx.spacer(),
-
                     rx.hstack(
-                        rx.text(
-                            "NEXT",
-                            font_family="monospace",
-                            font_size="12px",
-                        ),
-                        rx.icon(
-                            "chevron-right",
-                            size=14,
-                        ),
+                        rx.text("NEXT", font_family="monospace", font_size="12px"),
+                        rx.icon("chevron-right", size=14),
                         spacing="1",
                         on_click=ResourceState.next_slide,
                         cursor="pointer",
                         color=ACCENT_LIGHT,
                     ),
-
                     width="100%",
                     padding="16px 40px",
                     border_top=f"1px solid {BORDER}",
                 ),
-
                 flex="1",
                 align_items="start",
                 spacing="0",
                 min_width="0",
             ),
 
-            # ============================================================
             # AI sidebar
-            # ============================================================
             rx.vstack(
                 rx.hstack(
-                    rx.icon(
-                        "sparkles",
-                        size=14,
-                        color=ACCENT,
-                    ),
-                    rx.text(
-                        "ETUDE AI",
-                        color="white",
-                        font_weight="700",
-                        font_size="14px",
-                    ),
+                    rx.icon("sparkles", size=14, color=ACCENT),
+                    rx.text("ETUDE AI", color="white", font_weight="700", font_size="14px"),
                     rx.box(
                         "grounded",
-                        background=(
-                            "rgba(93, 138, 168, 0.2)"
-                        ),
+                        background="rgba(93, 138, 168, 0.2)",
                         color=ACCENT,
                         font_family="monospace",
                         font_size="10px",
@@ -312,15 +197,7 @@ def slides_viewer_page() -> rx.Component:
                     border_bottom=f"1px solid {BORDER}",
                     align_items="center",
                 ),
-
-                rx.text(
-                    "CONTEXT",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="10px",
-                    padding="14px 14px 0",
-                ),
-
+                rx.text("CONTEXT", color=ACCENT_LIGHT, font_family="monospace", font_size="10px", padding="14px 14px 0"),
                 rx.text(
                     ResourceState.subject_code,
                     " · slides",
@@ -329,80 +206,49 @@ def slides_viewer_page() -> rx.Component:
                     font_size="13px",
                     padding="0 14px 14px",
                 ),
-
                 rx.vstack(
-                    rx.foreach(
-                        ResourceState.chat_messages,
-                        chat_bubble,
-                    ),
-
+                    rx.foreach(ResourceState.chat_messages, chat_bubble),
                     rx.cond(
-                        ResourceState.chat_messages.length()
-                        == 0,
+                        ResourceState.chat_messages.length() == 0,
                         rx.box(
                             rx.text(
-                                (
-                                    "I'm Etude AI — strictly "
-                                    "grounded in your syllabus. "
-                                    "Ask me anything about the "
-                                    "current slide. I'll always "
-                                    "cite the slide I'm drawing "
-                                    "from."
-                                ),
+                                "I'm Etude AI — strictly grounded in your syllabus. "
+                                "Ask me anything about the current slide. I'll always "
+                                "cite the slide I'm drawing from.",
                                 color="white",
                                 font_size="13px",
                                 line_height="1.6",
                             ),
-                            background=(
-                                "rgba(93, 138, 168, 0.1)"
-                            ),
+                            background="rgba(93, 138, 168, 0.1)",
                             border=f"1px solid {BORDER}",
                             padding="14px",
                             width="100%",
                         ),
                         rx.fragment(),
                     ),
-
                     rx.cond(
                         ResourceState.ai_thinking,
-                        rx.text(
-                            "thinking…",
-                            color=ACCENT_LIGHT,
-                            font_family="monospace",
-                            font_size="12px",
-                        ),
+                        rx.text("thinking…", color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
                         rx.fragment(),
                     ),
-
                     width="100%",
                     padding="0 14px",
                     flex="1",
                     overflow_y="auto",
                     align_items="start",
                 ),
-
                 rx.hstack(
-                    suggestion_chip(
-                        "Summarise this slide"
-                    ),
-                    suggestion_chip(
-                        "Common pitfalls?"
-                    ),
+                    suggestion_chip("Summarise this slide"),
+                    suggestion_chip("Common pitfalls?"),
                     spacing="2",
                     padding="10px 14px",
                     flex_wrap="wrap",
                 ),
-
                 rx.hstack(
                     rx.input(
-                        placeholder=(
-                            "Ask anything from your "
-                            "syllabus…"
-                        ),
+                        placeholder="Ask anything from your syllabus…",
                         value=ResourceState.chat_input,
-                        on_change=(
-                            ResourceState.set_chat_input
-                        ),
+                        on_change=ResourceState.set_chat_input,
                         background="black",
                         border=f"1px solid {BORDER}",
                         color="white",
@@ -410,25 +256,18 @@ def slides_viewer_page() -> rx.Component:
                         font_size="13px",
                         flex="1",
                     ),
-
                     rx.icon(
                         "send",
                         size=16,
                         color=ACCENT,
                         cursor="pointer",
-
-                        # Explicitly pass an empty string.
-                        # Reflex will not fill the parameter
-                        # with PointerEventInfo.
                         on_click=ResourceState.ask_ai(""),
                     ),
-
                     width="100%",
                     padding="14px",
                     border_top=f"1px solid {BORDER}",
                     align_items="center",
                 ),
-
                 width="420px",
                 min_width="420px",
                 background="#050D18",
@@ -436,12 +275,10 @@ def slides_viewer_page() -> rx.Component:
                 align_items="start",
                 spacing="0",
             ),
-
             width="100%",
             spacing="0",
             align_items="stretch",
         ),
-
         background=BACKGROUND,
         min_height="100vh",
         on_mount=ResourceState.load_slides,

@@ -15,7 +15,7 @@ def generate_notes(
     """
     Generate revision/study notes on a topic using retrieved reference materials.
     """
-    chunks = retrieve(query=topic, subject=subject, semester=semester, n=5)
+    chunks = retrieve(query=topic, subject=subject, semester=semester)
     
     if not chunks:
         return {

@@ -15,7 +15,7 @@ def resolve_doubt(
     """
     Resolve a student's doubt using reference materials.
     """
-    chunks = retrieve(query=doubt, subject=subject, semester=semester, n=5)
+    chunks = retrieve(query=doubt, subject=subject, semester=semester)
     
     if not chunks:
         return {

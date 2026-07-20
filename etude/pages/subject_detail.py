@@ -21,9 +21,13 @@ def source_column(icon: str, label: str, title: str, description: str, count_lab
             rx.text(count_label, color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
             rx.spacer(),
             rx.link(
-                rx.hstack(rx.text("OPEN", font_family="monospace", font_size="12px"),
-                          rx.icon("arrow-right", size=14), spacing="1"),
-                href=href, color=ACCENT,
+                rx.hstack(
+                    rx.text("OPEN", font_family="monospace", font_size="12px"),
+                    rx.icon("arrow-right", size=14),
+                    spacing="1",
+                ),
+                href=href,
+                color=ACCENT,
             ),
             width="100%",
             margin_top="40px",
@@ -41,25 +45,49 @@ def subject_detail_page():
     subject_code = ResourceState.router.page.params.get("subject_code", "")
 
     return rx.box(
-
-        topbar(breadcrumb=subject_code, active="resources", srn=UserState.srn),
-
+        topbar(
+            breadcrumb=subject_code,
+            active="resources",
+            srn=UserState.srn,
+            back_href=f"/resources/{semester}",
+        ),
         rx.box(
-
             rx.vstack(
                 rx.text(subject_code, color=ACCENT, font_family="monospace", font_size="12px", letter_spacing="0.1em"),
                 rx.heading(
                     ResourceState.current_subject["subject_name"],
-                    color="white", font_family="'Space Grotesk', sans-serif", font_weight="800", font_size="44px",
+                    color="white",
+                    font_family="'Space Grotesk', sans-serif",
+                    font_weight="800",
+                    font_size="44px",
                 ),
                 rx.hstack(
                     rx.box(
-                        rx.cond(ResourceState.current_subject["syllabus_status"] == "current", "current syllabus", "stale syllabus"),
-                        border=f"1px solid {ACCENT}", color=ACCENT, font_family="monospace",
-                        font_size="12px", padding="4px 10px",
+                        rx.cond(
+                            ResourceState.current_subject["syllabus_status"] == "current",
+                            "current syllabus",
+                            "stale syllabus",
+                        ),
+                        border=f"1px solid {ACCENT}",
+                        color=ACCENT,
+                        font_family="monospace",
+                        font_size="12px",
+                        padding="4px 10px",
                     ),
-                    rx.text(f"{ResourceState.current_subject['slide_count']} slides", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
-                    rx.text(f"{ResourceState.current_subject['page_count']} pages", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
+                    rx.text(
+                        ResourceState.current_subject["slide_count"],
+                        " slides",
+                        color=ACCENT_LIGHT,
+                        font_family="monospace",
+                        font_size="13px",
+                    ),
+                    rx.text(
+                        ResourceState.current_subject["page_count"],
+                        " pages",
+                        color=ACCENT_LIGHT,
+                        font_family="monospace",
+                        font_size="13px",
+                    ),
                     rx.text("AI grounded", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
                     spacing="4",
                     align_items="center",
@@ -68,45 +96,56 @@ def subject_detail_page():
                 align_items="start",
                 padding="48px",
             ),
-
             rx.hstack(
                 source_column(
                     "pencil", "RAW SOURCE", "Lecture Slides",
                     "The original deck. Page-by-page slides with timestamps, callouts, and instructor annotations preserved.",
-                    f"{ResourceState.current_subject['slide_count']} SLIDES",
+                    ResourceState.current_subject["slide_count"].to_string() + " SLIDES",
                     f"/resources/{semester}/{subject_code}/slides",
                 ),
                 rx.box(width="1px", bg=BORDER),
                 source_column(
                     "file-text", "AI COMPILED", "Compiled Notes",
                     "Slides + textbook merged into one linear narrative. Every sentence cites its origin (slide # or §).",
-                    f"{ResourceState.current_subject['page_count']} PAGES",
+                    ResourceState.current_subject["page_count"].to_string() + " PAGES",
                     f"/resources/{semester}/{subject_code}/notes",
                 ),
                 width="100%",
                 spacing="0",
                 border_top=f"1px solid {BORDER}",
             ),
-
             rx.hstack(
                 rx.text(
                     "// tip — once inside, the AI sidebar stays pinned. Flashcards and quizzes never close it.",
-                    color=ACCENT_LIGHT, font_family="monospace", font_size="12px",
+                    color=ACCENT_LIGHT,
+                    font_family="monospace",
+                    font_size="12px",
                 ),
                 rx.spacer(),
-                rx.link(
-                    rx.hstack(rx.text("→ JUMP TO QUIZ", font_family="monospace", font_size="12px"), spacing="1"),
-                    href=f"/resources/{semester}/{subject_code}/quiz", color=ACCENT,
+                rx.hstack(
+                    rx.link(
+                        "→ FLASHCARDS",
+                        href=f"/resources/{semester}/{subject_code}/flashcards",
+                        color=ACCENT,
+                        font_family="monospace",
+                        font_size="12px",
+                    ),
+                    rx.link(
+                        "→ JUMP TO QUIZ",
+                        href=f"/resources/{semester}/{subject_code}/quiz",
+                        color=ACCENT,
+                        font_family="monospace",
+                        font_size="12px",
+                    ),
+                    spacing="4",
                 ),
                 width="100%",
                 padding="20px 48px",
                 border_top=f"1px solid {BORDER}",
             ),
-
             max_width="1600px",
             margin="0 auto",
         ),
-
         bg=BACKGROUND,
         min_height="100vh",
         on_mount=ResourceState.load_subject,
