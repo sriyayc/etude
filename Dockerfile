@@ -34,6 +34,14 @@ STOPSIGNAL SIGTERM
 
 EXPOSE $PORT
 
+# --backend-port is pinned deliberately. reflex.Config.backend_port defaults to
+# None, in which case Reflex derives the port from REFLEX_API_URL -- which here
+# resolves to http://localhost:$PORT, the port Caddy already listens on. Reflex
+# then finds it occupied and silently relocates to the next free port, while
+# Caddy keeps proxying to the hardcoded 127.0.0.1:8000 in the Caddyfile. That
+# produces "dial tcp 127.0.0.1:8000: connect: connection refused" on /ping and
+# fails the healthcheck. Pinning both sides to 8000 keeps them in agreement.
 CMD caddy start --config Caddyfile --adapter caddyfile && \
     redis-server --daemonize yes && \
-    exec reflex run --env prod --backend-only
+    exec reflex run --env prod --backend-only \
+        --backend-host 0.0.0.0 --backend-port 8000
