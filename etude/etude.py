@@ -19,10 +19,8 @@ from etude.state import UserState, QuizState, FlashcardState, NotesState
 
 app = rx.App(
     stylesheets=[t.FONT_STYLESHEET],
-    # Radix-backed components (rx.input, rx.spinner, rx.markdown) don't read
-    # our tokens -- they follow the Radix theme, so it has to be dark too or
-    # they render as light islands on a dark page.
-    theme=rx.theme(appearance="dark", accent_color="blue", gray_color="slate"),
+    # Radix dark theme is configured via RadixThemesPlugin in rxconfig.py --
+    # rx.App(theme=...) is deprecated since Reflex 0.9.0.
     style={
         "font_family": t.FONT_BODY,
         "background": t.BG_PAGE,
