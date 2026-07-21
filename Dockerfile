@@ -30,7 +30,7 @@ RUN mkdir -p /srv \
     && mv .web/build/client/* /srv/ \
     && rm -rf /srv/.env .web
 
-STOPSIGNAL SIGKILL
+STOPSIGNAL SIGTERM
 
 EXPOSE $PORT
 

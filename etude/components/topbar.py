@@ -30,22 +30,14 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
 
     return rx.hstack(
 
+        # logo.png is the full "etude" wordmark -- don't pair it with a text
+        # "etude" or the brand renders twice.
         rx.link(
-            rx.hstack(
-                rx.image(src="/logo.png", height="26px", width="auto"),
-                rx.text(
-                    "etude",
-                    color=t.TEXT,
-                    font_family=t.FONT_DISPLAY,
-                    font_weight="700",
-                    font_size="19px",
-                    letter_spacing="-0.01em",
-                ),
-                spacing="2",
-                align_items="center",
-            ),
+            rx.image(src="/logo.png", height="30px", width="auto"),
             href="/dashboard",
             text_decoration="none",
+            display="flex",
+            align_items="center",
         ),
 
         rx.box(

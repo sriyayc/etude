@@ -30,3 +30,7 @@ embeddings_cache/
 .DS_Store
 Thumbs.db
 etude-env/
+
+# local reflex logs
+reflex_error.txt
+*.log

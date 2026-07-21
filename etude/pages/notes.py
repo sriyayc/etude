@@ -181,10 +181,12 @@ def unit_picker() -> rx.Component:
             ),
         ),
         width="100%",
-        max_width="820px",
         padding="40px",
         overflow_y="auto",
+        # max-width belongs on the inner content, not on the flex item --
+        # capping the flex item leaves a dead gutter beside the AI sidebar.
         flex="1",
+        min_width="0",
     )
 
 

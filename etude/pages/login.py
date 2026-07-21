@@ -23,18 +23,8 @@ def feature_row(icon: str, text: str) -> rx.Component:
 def brand_panel() -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.hstack(
-                rx.image(src="/logo.png", height="34px", width="auto"),
-                rx.text(
-                    "etude",
-                    color="white",
-                    font_family=t.FONT_DISPLAY,
-                    font_weight="700",
-                    font_size="24px",
-                ),
-                spacing="2",
-                align_items="center",
-            ),
+            # logo.png already contains the "etude" wordmark.
+            rx.image(src="/logo.png", height="40px", width="auto"),
             rx.spacer(),
             rx.vstack(
                 rx.heading(
@@ -80,7 +70,7 @@ def brand_panel() -> rx.Component:
         ),
         width="50%",
         height="100vh",
-        background=f"linear-gradient(150deg, {t.ACCENT_STRONG} 0%, {t.ACCENT} 55%, #6E9BB8 100%)",
+        background=t.HERO_GRADIENT,
         display=["none", "none", "flex", "flex"],
     )
 

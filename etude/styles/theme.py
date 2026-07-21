@@ -1,41 +1,53 @@
-"""Etude design system — clean, light, modern edtech.
+"""Etude design system — dark, modern edtech.
 
 Single source of truth for colours, type, spacing and reusable primitives.
-The brand accent stays in the original steel-blue family; only the surrounding
-surfaces moved from a black terminal look to a light, rounded, airy one.
+The brand accent stays in the steel-blue family; surfaces are a blue-tinted
+charcoal rather than pure black, which keeps long reading sessions comfortable
+and lets elevation read through surface lightness instead of heavy shadow.
+
+Contrast notes (WCAG AA against BG_PAGE):
+  TEXT        ~15.9:1
+  TEXT_BODY   ~10.2:1
+  TEXT_MUTED   ~6.0:1
+Text on a filled ACCENT button uses ACCENT_TEXT_ON (near-black, ~6.4:1);
+white-on-accent would only reach ~3.7:1 and fail AA at body sizes.
 """
 
 # ----------------------------------------------------------------------
 # Colour tokens
 # ----------------------------------------------------------------------
 
-# Surfaces
-BG_PAGE = "#F5F8FA"        # app background (very light blue-grey)
-BG_CARD = "#FFFFFF"        # cards, bars, panels
-BG_SUBTLE = "#EEF3F7"      # hover fills, inset areas
-BG_SIDEBAR = "#FBFCFD"     # AI sidebar / secondary panels
+# Surfaces — elevation increases with lightness
+BG_PAGE = "#0E1418"        # app background (deepest)
+BG_CARD = "#161E24"        # cards, bars, panels
+BG_SUBTLE = "#1C262E"      # hover fills, inset areas
+BG_SIDEBAR = "#121A20"     # AI sidebar / secondary panels
 
-# Brand accent — unchanged steel-blue hue
-ACCENT = "#5D8AA8"         # brand fill / highlights
-ACCENT_STRONG = "#3D6885"  # darker accent for text on white (accessible)
-ACCENT_HOVER = "#4E7691"
-ACCENT_SOFT = "#E9F1F6"    # tinted chip / badge background
-ACCENT_TEXT_ON = "#FFFFFF"  # text on a filled accent button
+# Brand accent — steel-blue, brightened so it carries on a dark ground
+ACCENT = "#6FA3C0"          # brand fill / highlights
+ACCENT_STRONG = "#9CC4DC"   # accent *text* on dark surfaces (lighter, not darker)
+ACCENT_HOVER = "#83B4CE"    # brightens on hover
+ACCENT_SOFT = "#1A2A35"     # tinted chip / badge background
+ACCENT_TEXT_ON = "#0B1116"  # text/icons on a filled accent button
 
 # Text
-TEXT = "#1B2A38"           # headings / primary text
-TEXT_BODY = "#41535F"      # paragraph text
-TEXT_MUTED = "#7B8A98"     # meta, timestamps, dim labels
+TEXT = "#E8EEF3"           # headings / primary text
+TEXT_BODY = "#B4C2CD"      # paragraph text
+TEXT_MUTED = "#8494A1"     # meta, timestamps, dim labels
 
 # Lines
-BORDER = "#E3E9EF"         # hairline borders
-BORDER_STRONG = "#CBD6DF"  # input / focus borders
+BORDER = "#222E37"         # hairline borders
+BORDER_STRONG = "#31414D"  # input / focus borders
 
-# Status
-SUCCESS = "#2E9E6B"
-SUCCESS_SOFT = "#E7F5EE"
-ERROR = "#D9534F"
-ERROR_SOFT = "#FBECEC"
+# Status — brightened for legibility on dark
+SUCCESS = "#4ECB8D"
+SUCCESS_SOFT = "#13291F"
+ERROR = "#F0796F"
+ERROR_SOFT = "#2A1618"
+
+# Hero gradient (login split-panel). Kept deliberately deep so the white
+# text layered on it stays well above AA.
+HERO_GRADIENT = "linear-gradient(150deg, #1E3A4C 0%, #2E5A73 55%, #3D7290 100%)"
 
 # ----------------------------------------------------------------------
 # Shape & elevation
@@ -46,9 +58,11 @@ RADIUS_MD = "12px"
 RADIUS_SM = "8px"
 RADIUS_PILL = "999px"
 
-SHADOW_SM = "0 1px 2px rgba(16,32,48,0.05)"
-SHADOW_CARD = "0 1px 2px rgba(16,32,48,0.04), 0 6px 20px rgba(16,32,48,0.06)"
-SHADOW_HOVER = "0 2px 4px rgba(16,32,48,0.06), 0 12px 28px rgba(16,32,48,0.10)"
+# On dark, shadow alone reads poorly — these are deeper, and surfaces also
+# lighten with elevation (see BG_* above) to carry the hierarchy.
+SHADOW_SM = "0 1px 2px rgba(0,0,0,0.40)"
+SHADOW_CARD = "0 1px 2px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.45)"
+SHADOW_HOVER = "0 2px 4px rgba(0,0,0,0.40), 0 12px 28px rgba(0,0,0,0.55)"
 
 # ----------------------------------------------------------------------
 # Type

@@ -98,7 +98,7 @@ def upload_page():
                     rx.upload(
                         rx.vstack(
                             rx.box(
-                                rx.icon("upload-cloud", size=24, color=t.ACCENT_STRONG),
+                                rx.icon("cloud-upload", size=24, color=t.ACCENT_STRONG),
                                 background=t.ACCENT_SOFT,
                                 border_radius=t.RADIUS_PILL,
                                 padding="14px",
