@@ -7,7 +7,9 @@ from etude.components import ui
 from etude.state import UserState
 from etude.styles import theme as t
 
-SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8]
+# Semesters 7 and 8 are capstone/internship only -- no coursework syllabus to
+# browse, so they are deliberately not listed.
+SEMESTERS = [1, 2, 3, 4, 5, 6]
 
 
 def semester_tile(number: int):
