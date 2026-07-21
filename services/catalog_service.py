@@ -18,7 +18,7 @@ typical university slide decks. This is best-effort, not exact.
 import re
 from collections import Counter
 
-from db import subjects_repo, syllabus_repo
+from db import documents_repo, subjects_repo, syllabus_repo
 from ingestion.extract import extract_pages
 
 _ROMAN_NUMERALS = {
@@ -76,12 +76,28 @@ def sync_catalog(
     ]
     subjects_repo.bulk_upsert_slides(slide_rows)
 
+    # A subject has one deck per unit, so its counts are the total across all
+    # of them -- using just this deck's page count would make each upload
+    # overwrite the previous one's tally.
+    slug = subjects_repo.slugify(subject_name)
+    total_pages = len(pages)
+    try:
+        for doc in documents_repo.list_documents(subject=slug, semester=semester):
+            if doc.get("document_type") != "slides":
+                continue
+            doc_id = str(doc.get("id"))
+            if doc_id and doc_id != str(document_uuid):
+                total_pages += len(subjects_repo.list_slides(document_id=doc_id))
+    except Exception:
+        # Counts are cosmetic; never fail an ingest over them.
+        total_pages = len(pages)
+
     subjects_repo.upsert_subject(
         semester=semester,
         subject_name=subject_name,
         syllabus_status="current",
-        slide_count=len(pages),
-        page_count=len(pages),
+        slide_count=total_pages,
+        page_count=total_pages,
         slides_document_id=document_uuid,
     )
 

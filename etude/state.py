@@ -18,7 +18,21 @@ from services import (
     flashcard_service,
     notes_service,
 )
-from db import quiz_attempts_repo, stats_repo, subjects_repo, syllabus_repo
+from db import (
+    documents_repo,
+    quiz_attempts_repo,
+    stats_repo,
+    subjects_repo,
+    syllabus_repo,
+)
+
+
+def _deck_sort_key(title: str):
+    """Sort deck titles so Unit 2 precedes Unit 10, not the other way round."""
+    import re
+
+    match = re.search(r"(\d+)", title or "")
+    return (0, int(match.group(1)), title.lower()) if match else (1, 0, (title or "").lower())
 
 
 def _relative_time(ts, now) -> str:
@@ -108,6 +122,12 @@ class ResourceState(rx.State):
     # ---------------------------------------------------------
     # Selected subject
     # ---------------------------------------------------------
+
+    # A subject usually has several slide decks -- one per unit -- so the
+    # viewer lists them and swaps between them rather than showing a single
+    # PDF pinned to subjects.slides_document_id.
+    slide_decks: list[dict] = []
+    selected_deck_id: str = ""
 
     current_subject: dict = {
         "slug": "",
@@ -376,13 +396,53 @@ class ResourceState(rx.State):
             ),
         }
 
-        document_id = self.current_subject.get("document_id")
+        try:
+            docs = documents_repo.list_documents(
+                subject=str(self.subject_slug), semester=semester_number
+            )
+        except Exception:
+            docs = []
 
+        decks = [d for d in docs if d.get("document_type") == "slides"]
+        # Natural-ish ordering so "Unit 1..Unit 10" doesn't sort 1,10,2.
+        decks.sort(key=lambda d: _deck_sort_key(d.get("title") or ""))
+        self.slide_decks = [
+            {"id": str(d.get("id")), "title": d.get("title") or "Untitled deck"}
+            for d in decks
+            if d.get("id")
+        ]
+
+        # Subjects ingested before multi-deck support only have the single
+        # pointer on the subjects row.
+        legacy_id = self.current_subject.get("document_id")
+        if not self.slide_decks and legacy_id:
+            self.slide_decks = [{"id": str(legacy_id), "title": "Lecture slides"}]
+
+        if not self.slide_decks:
+            self.slides = []
+            self.selected_deck_id = ""
+            self.resource_error = "This subject has no slide decks uploaded yet."
+            return
+
+        deck_ids = [d["id"] for d in self.slide_decks]
+        if self.selected_deck_id not in deck_ids:
+            self.selected_deck_id = deck_ids[0]
+
+        await self._load_deck(self.selected_deck_id)
+
+    @rx.event
+    async def select_deck(self, deck_id: str):
+        """Switch the viewer to another unit's deck."""
+        await bind_session(self)
+        self.selected_deck_id = deck_id
+        self.resource_error = ""
+        await self._load_deck(deck_id)
+
+    async def _load_deck(self, document_id: str):
+        """Load the PDF URL and extracted slides for one deck."""
+        self.pdf_url = ""
         if not document_id:
             self.slides = []
-            self.resource_error = (
-                "This subject has no slide document attached."
-            )
             return
 
         try:
@@ -950,6 +1010,16 @@ class UserState(rx.State):
     upload_error: str = ""
     upload_success: bool = False
     upload_loading: bool = False
+    upload_status: str = ""
+    upload_done_count: int = 0
+    upload_total_count: int = 0
+
+    @rx.var
+    def upload_percent(self) -> int:
+        """Completed share of a multi-file upload, for the progress bar."""
+        if self.upload_total_count <= 0:
+            return 0
+        return int(self.upload_done_count * 100 / self.upload_total_count)
 
     # FIX: Changed from standard @property to @rx.var
     @rx.var
@@ -1110,6 +1180,12 @@ class UserState(rx.State):
             return
 
         return rx.redirect("/login")
+
+    @rx.event
+    def handle_login_key(self, key: str):
+        """Let Enter submit the login form from either field."""
+        if key == "Enter":
+            return UserState.handle_login
 
     async def handle_login(self):
         self.login_error = ""
@@ -1298,8 +1374,19 @@ class UserState(rx.State):
             return rx.redirect("/dashboard")
 
     async def handle_upload(self, files: list[rx.UploadFile]):
+        """Upload + ingest PDFs, reporting progress as it goes.
+
+        This is a generator: every ``yield`` flushes the current status to the
+        browser. The upload/ingest calls are synchronous and slow (embedding a
+        deck takes tens of seconds), so they run via ``asyncio.to_thread`` --
+        left inline they would block the event loop, no status would ever
+        paint, and the page would just look frozen.
+        """
         self.upload_error = ""
         self.upload_success = False
+        self.upload_status = ""
+        self.upload_done_count = 0
+        self.upload_total_count = 0
 
         db_client.set_access_token(self.access_token or None)
 
@@ -1308,9 +1395,11 @@ class UserState(rx.State):
         # get an upload through.
         try:
             if auth_service.get_current_user()["role"] != "admin":
-                return rx.redirect("/dashboard")
+                yield rx.redirect("/dashboard")
+                return
         except Exception:
-            return rx.redirect("/login")
+            yield rx.redirect("/login")
+            return
 
         if not self.upload_title:
             self.upload_error = "Give the document a title."
@@ -1330,28 +1419,55 @@ class UserState(rx.State):
             self.upload_error = "Choose a file first."
             return
 
+        slug = subjects_repo.slugify(self.upload_subject)
+        total = len(files)
         self.upload_loading = True
-        await asyncio.sleep(0.01)
+        self.upload_total_count = total
+        yield
 
         try:
-            for file in files:
+            for index, file in enumerate(files, start=1):
+                label = file.filename or "file " + str(index)
+                # Each PDF becomes its own deck tab, so a batch upload must
+                # not stamp every file with the same title -- fall back to the
+                # filename (e.g. "Unit 3.pdf" -> "Unit 3") when uploading many.
+                if total > 1:
+                    deck_title = (file.filename or label).rsplit(".", 1)[0].strip()
+                else:
+                    deck_title = self.upload_title
+                counter = " (" + str(index) + "/" + str(total) + ")"
+
+                self.upload_status = "Reading " + label + counter
+                yield
+
                 data = await file.read()
                 dest = rx.get_upload_dir() / file.filename
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(data)
 
-                doc_res = document_service.upload_document(
+                self.upload_status = "Uploading " + label + " to storage" + counter
+                yield
+
+                doc_res = await asyncio.to_thread(
+                    document_service.upload_document,
                     file_path=str(dest),
-                    title=self.upload_title,
+                    title=deck_title,
                     document_type=self.upload_document_type,
-                    subject=subjects_repo.slugify(self.upload_subject),
+                    subject=slug,
                     semester=semester_number,
                 )
 
-                ingestion_service.ingest_document(
+                self.upload_status = (
+                    "Extracting text and building embeddings for "
+                    + label + counter + " - this is the slow step"
+                )
+                yield
+
+                await asyncio.to_thread(
+                    ingestion_service.ingest_document,
                     pdf_path=str(dest),
                     document_type=self.upload_document_type,
-                    subject=subjects_repo.slugify(self.upload_subject),
+                    subject=slug,
                     semester=semester_number,
                 )
 
@@ -1366,9 +1482,11 @@ class UserState(rx.State):
                     and doc_res.get("success")
                     and doc_res.get("document_id")
                 ):
+                    self.upload_status = "Indexing slides for " + label + counter
+                    yield
+
                     existing_subject = subjects_repo.get_subject(
-                        semester=semester_number,
-                        slug=subjects_repo.slugify(self.upload_subject),
+                        semester=semester_number, slug=slug
                     )
                     subject_name = (
                         existing_subject.get("subject_name")
@@ -1376,18 +1494,23 @@ class UserState(rx.State):
                         else None
                     ) or self.upload_subject
 
-                    catalog_service.sync_catalog(
+                    await asyncio.to_thread(
+                        catalog_service.sync_catalog,
                         pdf_path=str(dest),
                         document_uuid=doc_res["document_id"],
                         subject_name=subject_name,
                         semester=semester_number,
                     )
+
+                self.upload_done_count = index
+                yield
         except Exception as e:
             self.upload_loading = False
+            self.upload_status = ""
             self.upload_error = str(e)
             return
 
         self.upload_loading = False
+        self.upload_status = ""
         self.upload_success = True
         self.upload_title = ""
-        self.upload_subject = ""

@@ -173,6 +173,14 @@ def text_input(**props) -> rx.Component:
     props.setdefault("width", "100%")
     props.setdefault("_focus", {"border_color": t.ACCENT, "outline": "none"})
 
+    # A controlled rx.input (value= + on_change=) is wrapped in a debouncer
+    # that defaults to 300ms. Type a password and hit the submit button
+    # inside that window and the handler runs against a stale, half-typed
+    # value -- which surfaces as "Invalid SRN or password" until you click
+    # enough times for the debounce to flush. Sync on every keystroke
+    # instead; these are short form fields, not a search-as-you-type box.
+    props.setdefault("debounce_timeout", 0)
+
     style = dict(props.pop("style", {}) or {})
     style.setdefault(
         "& .rt-TextFieldInput",

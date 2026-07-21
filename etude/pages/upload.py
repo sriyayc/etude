@@ -212,10 +212,49 @@ def upload_page():
                     ),
                     rx.cond(
                         UserState.upload_loading,
-                        rx.hstack(
-                            rx.spinner(size="1", color=t.ACCENT),
-                            rx.text("Uploading & ingesting…", color=t.TEXT_MUTED, font_size="13px"),
-                            spacing="2", align_items="center",
+                        rx.vstack(
+                            rx.hstack(
+                                rx.spinner(size="1", color=t.ACCENT),
+                                rx.text(
+                                    UserState.upload_status,
+                                    color=t.TEXT,
+                                    font_size="13px",
+                                    font_weight="500",
+                                ),
+                                spacing="2",
+                                align_items="center",
+                            ),
+                            # Per-file progress. Embedding a deck runs tens of
+                            # seconds, so a bare spinner reads as a hang.
+                            rx.cond(
+                                UserState.upload_total_count > 1,
+                                rx.box(
+                                    rx.box(
+                                        width=UserState.upload_percent.to_string() + "%",
+                                        height="100%",
+                                        bg=t.ACCENT,
+                                        border_radius=t.RADIUS_PILL,
+                                        transition="width .3s ease",
+                                    ),
+                                    width="100%",
+                                    height="6px",
+                                    bg=t.BG_SUBTLE,
+                                    border_radius=t.RADIUS_PILL,
+                                ),
+                                rx.fragment(),
+                            ),
+                            rx.text(
+                                "Keep this tab open — leaving now cancels the ingest.",
+                                color=t.TEXT_MUTED,
+                                font_size="12px",
+                            ),
+                            spacing="3",
+                            width="100%",
+                            align_items="start",
+                            background=t.BG_SUBTLE,
+                            border=f"1px solid {t.BORDER}",
+                            border_radius=t.RADIUS_MD,
+                            padding="14px 16px",
                         ),
                         ui.primary_button(
                             "Upload document",

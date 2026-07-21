@@ -30,6 +30,29 @@ def toolbar_link(icon: str, label: str, href: str, external: bool = False) -> rx
     )
 
 
+def deck_tab(deck: rx.Var) -> rx.Component:
+    """One selectable unit deck."""
+    is_active = ResourceState.selected_deck_id == deck["id"]
+    return rx.box(
+        rx.text(
+            deck["title"],
+            font_size="13px",
+            font_weight=rx.cond(is_active, "600", "500"),
+            color=rx.cond(is_active, t.ACCENT_TEXT_ON, t.TEXT_BODY),
+            white_space="nowrap",
+        ),
+        on_click=ResourceState.select_deck(deck["id"]),
+        background=rx.cond(is_active, t.ACCENT, t.BG_SUBTLE),
+        border=f"1px solid {rx.cond(is_active, t.ACCENT, t.BORDER)}",
+        border_radius=t.RADIUS_PILL,
+        padding="6px 14px",
+        cursor="pointer",
+        transition="all .15s ease",
+        flex_shrink="0",
+        _hover={"border_color": t.ACCENT},
+    )
+
+
 def slides_viewer_page() -> rx.Component:
     """Render the slide viewer page."""
 
@@ -57,14 +80,18 @@ def slides_viewer_page() -> rx.Component:
                     font_weight="600",
                     font_size="15px",
                 ),
-                rx.text(
-                    "lecture slides",
-                    color=t.TEXT_MUTED,
-                    font_size="13px",
-                    font_family=t.FONT_MONO,
+                # One deck per unit -- tabs let you move between them without
+                # going back to the subject page.
+                rx.hstack(
+                    rx.foreach(ResourceState.slide_decks, deck_tab),
+                    spacing="2",
+                    align_items="center",
+                    overflow_x="auto",
+                    max_width="52vw",
                 ),
                 spacing="3",
                 align_items="center",
+                min_width="0",
             ),
             rx.spacer(),
             toolbar_link("download", "Download", ResourceState.pdf_url, external=True),

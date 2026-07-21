@@ -102,6 +102,7 @@ def form_panel() -> rx.Component:
                     placeholder="PES2UG24CS510",
                     value=UserState.login_srn,
                     on_change=UserState.set_login_srn,
+                    on_key_down=UserState.handle_login_key,
                 ),
                 field(
                     "Password", None,
@@ -109,6 +110,7 @@ def form_panel() -> rx.Component:
                     type="password",
                     value=UserState.login_password,
                     on_change=UserState.set_login_password,
+                    on_key_down=UserState.handle_login_key,
                 ),
                 rx.cond(
                     UserState.login_error != "",
