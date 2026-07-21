@@ -31,11 +31,32 @@ def signup_form_panel() -> rx.Component:
                     on_change=UserState.set_signup_srn,
                 ),
                 field(
-                    "Password", None,
+                    "Email", "Personal email — used to verify your account and reset your password",
+                    placeholder="you@example.com",
+                    type="email",
+                    value=UserState.signup_email,
+                    on_change=UserState.set_signup_email,
+                ),
+                field(
+                    "Password", "At least 8 characters",
                     placeholder="••••••••",
                     type="password",
                     value=UserState.signup_password,
                     on_change=UserState.set_signup_password,
+                ),
+                rx.cond(
+                    UserState.signup_notice != "",
+                    rx.hstack(
+                        rx.icon("mail-check", size=15, color=t.SUCCESS),
+                        rx.text(UserState.signup_notice, color=t.SUCCESS, font_size="13px"),
+                        spacing="2",
+                        align_items="start",
+                        background=t.SUCCESS_SOFT,
+                        border_radius=t.RADIUS_SM,
+                        padding="10px 12px",
+                        width="100%",
+                    ),
+                    rx.fragment(),
                 ),
                 rx.cond(
                     UserState.signup_error != "",

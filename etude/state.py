@@ -4,6 +4,8 @@ import reflex as rx
 import asyncio
 from typing import TypedDict
 
+import config
+from db import client as db_client
 from services import (
     auth_service,
     document_service,
@@ -16,6 +18,17 @@ from services import (
     notes_service,
 )
 from db import stats_repo, subjects_repo, syllabus_repo
+
+
+async def bind_session(state) -> None:
+    """Bind this request's DB calls to the signed-in user of THIS session.
+
+    Reflex state is per-session but the Supabase client is process-wide, so
+    without this every DB call would run as whoever logged in most recently.
+    Call at the top of any event handler that touches Supabase.
+    """
+    user = await state.get_state(UserState)
+    db_client.set_access_token(user.access_token or None)
 
 
 def _load_units(subject: str, semester: int) -> list[dict]:
@@ -156,8 +169,9 @@ class ResourceState(rx.State):
         self.filter_status = value
 
     @rx.event
-    def load_subjects(self):
+    async def load_subjects(self):
         """Load all subjects for the current semester."""
+        await bind_session(self)
 
         self.resource_error = ""
 
@@ -210,8 +224,9 @@ class ResourceState(rx.State):
         self.subjects = normalized_subjects
 
     @rx.event
-    def load_subject(self):
+    async def load_subject(self):
         """Load the subject selected by the dynamic route."""
+        await bind_session(self)
 
         self.resource_error = ""
 
@@ -276,8 +291,9 @@ class ResourceState(rx.State):
     # ---------------------------------------------------------
 
     @rx.event
-    def load_slides(self):
+    async def load_slides(self):
         """Load the active subject and its slides."""
+        await bind_session(self)
 
         self.resource_error = ""
         self.chat_messages = []
@@ -552,7 +568,8 @@ class QuizState(rx.State):
         return bool(self.questions) and self.current_index == len(self.questions) - 1
 
     @rx.event
-    def load_units(self):
+    async def load_units(self):
+        await bind_session(self)
         self.units_error = ""
         self.questions = []
         self.selected_unit_title = ""
@@ -568,7 +585,8 @@ class QuizState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_quiz(self, unit_number: int, unit_title: str):
+    async def generate_quiz(self, unit_number: int, unit_title: str):
+        await bind_session(self)
         self.quiz_error = ""
         self.quiz_loading = True
         self.selected_unit_title = unit_title
@@ -692,7 +710,8 @@ class FlashcardState(rx.State):
         return f"{self.current_index + 1} / {len(self.cards)}"
 
     @rx.event
-    def load_units(self):
+    async def load_units(self):
+        await bind_session(self)
         self.units_error = ""
         self.cards = []
         self.selected_unit_title = ""
@@ -708,7 +727,8 @@ class FlashcardState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_flashcards(self, unit_number: int, unit_title: str):
+    async def generate_flashcards(self, unit_number: int, unit_title: str):
+        await bind_session(self)
         self.cards_error = ""
         self.cards_loading = True
         self.selected_unit_title = unit_title
@@ -784,7 +804,8 @@ class NotesState(rx.State):
         return bool(self.notes_md)
 
     @rx.event
-    def load_units(self):
+    async def load_units(self):
+        await bind_session(self)
         self.units_error = ""
         self.notes_md = ""
         self.selected_unit_title = ""
@@ -800,7 +821,8 @@ class NotesState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    def generate_notes(self, unit_number: int, unit_title: str):
+    async def generate_notes(self, unit_number: int, unit_title: str):
+        await bind_session(self)
         self.notes_error = ""
         self.notes_loading = True
         self.selected_unit_title = unit_title
@@ -849,6 +871,12 @@ class UserState(rx.State):
     srn: str = ""
     role: str = ""
 
+    # Per-session Supabase credentials. These live in state (which Reflex keeps
+    # per browser session) rather than on a shared client, so two people signed
+    # in at once can't overwrite each other's identity.
+    access_token: str = ""
+    refresh_token: str = ""
+
     # ---- derived stats (loaded on dashboard/profile) ----
     points: int = 0
     rank: int = 0
@@ -864,7 +892,16 @@ class UserState(rx.State):
     signup_email: str = ""
     signup_password: str = ""
     signup_error: str = ""
+    signup_notice: str = ""
     signup_loading: bool = False
+
+    # ---- password reset ----
+    reset_email: str = ""
+    reset_password_value: str = ""
+    reset_confirm_value: str = ""
+    reset_error: str = ""
+    reset_notice: str = ""
+    reset_loading: bool = False
 
     # ---- login form fields ----
     login_srn: str = ""
@@ -926,19 +963,27 @@ class UserState(rx.State):
         if not all([
             self.signup_full_name,
             self.signup_srn,
+            self.signup_email,
             self.signup_password,
         ]):
             self.signup_error = "Fill in all fields."
             return
 
+        email = self.signup_email.strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            self.signup_error = "Enter a valid email address."
+            return
+
+        if len(self.signup_password) < 8:
+            self.signup_error = "Password must be at least 8 characters."
+            return
+
         self.signup_loading = True
         await asyncio.sleep(0.01)
 
-        derived_email = f"{self.signup_srn.strip().lower()}@stu.pes.edu"
-
         try:
-            auth_service.signup_student(
-                email=derived_email,
+            result = auth_service.signup_student(
+                email=email,
                 password=self.signup_password,
                 full_name=self.signup_full_name,
                 srn=self.signup_srn,
@@ -949,6 +994,17 @@ class UserState(rx.State):
             return
 
         self.signup_loading = False
+
+        # When email confirmation is on, the account exists but can't sign in
+        # until the link is clicked -- say so instead of dropping them on a
+        # login form that will just reject them.
+        if result.get("needs_confirmation"):
+            self.signup_notice = (
+                f"Almost there — we sent a confirmation link to {email}. "
+                "Click it, then sign in with your SRN."
+            )
+            return
+
         return rx.redirect("/login")
 
     async def handle_login(self):
@@ -976,8 +1032,13 @@ class UserState(rx.State):
         self.srn = result["srn"]
         self.full_name = result["full_name"]
         self.role = result["role"]
+        # Held per session; every later request re-binds from here rather than
+        # relying on a shared client's ambient session.
+        self.access_token = result.get("access_token", "")
+        self.refresh_token = result.get("refresh_token", "")
 
         self.login_loading = False
+        self.login_password = ""
         return rx.redirect("/dashboard")
 
     def clear_auth_errors(self):
@@ -989,14 +1050,88 @@ class UserState(rx.State):
         """
         self.login_error = ""
         self.signup_error = ""
+        self.signup_notice = ""
+        self.reset_error = ""
+        self.reset_notice = ""
+
+    # ---- password reset setters ----
+    def set_reset_email(self, value: str):
+        self.reset_email = value
+
+    def set_reset_password_value(self, value: str):
+        self.reset_password_value = value
+
+    def set_reset_confirm_value(self, value: str):
+        self.reset_confirm_value = value
+
+    async def handle_forgot_password(self):
+        """Email a reset link. Deliberately does not reveal whether the
+        address is registered."""
+        self.reset_error = ""
+        self.reset_notice = ""
+
+        email = self.reset_email.strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            self.reset_error = "Enter a valid email address."
+            return
+
+        self.reset_loading = True
+        await asyncio.sleep(0.01)
+
+        auth_service.request_password_reset(
+            email=email,
+            redirect_to=f"{config.APP_BASE_URL}/reset-password",
+        )
+
+        self.reset_loading = False
+        self.reset_notice = (
+            f"If {email} has an Etude account, a reset link is on its way. "
+            "Check spam if it doesn't arrive in a few minutes."
+        )
+
+    async def handle_reset_password(self):
+        """Set a new password using the recovery session from the email link."""
+        self.reset_error = ""
+        self.reset_notice = ""
+
+        if len(self.reset_password_value) < 8:
+            self.reset_error = "Password must be at least 8 characters."
+            return
+
+        if self.reset_password_value != self.reset_confirm_value:
+            self.reset_error = "Passwords do not match."
+            return
+
+        self.reset_loading = True
+        await asyncio.sleep(0.01)
+
+        try:
+            auth_service.update_password(self.reset_password_value)
+        except Exception:
+            self.reset_loading = False
+            self.reset_error = (
+                "That reset link is invalid or has expired. Request a new one."
+            )
+            return
+
+        self.reset_loading = False
+        self.reset_password_value = ""
+        self.reset_confirm_value = ""
+        return rx.redirect("/login")
 
     def logout(self):
         auth_service.logout()
+        db_client.clear_access_token()
         self.reset()
         return rx.redirect("/login")
 
-    def load_profile(self):
+    async def load_profile(self):
         """Call this in on_load for /dashboard, /leaderboard, /profile."""
+        # Identity must come from THIS session's token. Reading it from a
+        # shared client is what made an admin's profile turn into a student's
+        # (and vice versa) as soon as someone else signed in.
+        db_client.set_access_token(self.access_token or None)
+
         try:
             user = auth_service.get_current_user()
         except Exception:
@@ -1023,8 +1158,16 @@ class UserState(rx.State):
         self.upload_error = ""
         self.upload_success = False
 
-        if self.role != "admin":
-            return rx.redirect("/dashboard")
+        db_client.set_access_token(self.access_token or None)
+
+        # Re-check the role server-side against this session's own token
+        # rather than trusting client state, so a stale/spoofed role can't
+        # get an upload through.
+        try:
+            if auth_service.get_current_user()["role"] != "admin":
+                return rx.redirect("/dashboard")
+        except Exception:
+            return rx.redirect("/login")
 
         if not self.upload_title:
             self.upload_error = "Give the document a title."

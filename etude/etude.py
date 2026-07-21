@@ -2,6 +2,8 @@ import reflex as rx
 
 from .pages.login import login_page
 from .pages.signup import signup_page
+from .pages.forgot_password import forgot_password_page
+from .pages.reset_password import reset_password_page
 from .pages.dashboard import dashboard_page
 from .pages.leaderboard import leaderboard_page
 from .pages.profile import profile_page
@@ -37,6 +39,16 @@ def index():
 app.add_page(index, route="/")
 app.add_page(login_page, route="/login", on_load=UserState.clear_auth_errors)
 app.add_page(signup_page, route="/signup", on_load=UserState.clear_auth_errors)
+app.add_page(
+    forgot_password_page,
+    route="/forgot-password",
+    on_load=UserState.clear_auth_errors,
+)
+app.add_page(
+    reset_password_page,
+    route="/reset-password",
+    on_load=UserState.clear_auth_errors,
+)
 app.add_page(dashboard_page, route="/dashboard", on_load=UserState.load_profile)
 app.add_page(leaderboard_page, route="/leaderboard", on_load=UserState.load_profile)
 app.add_page(profile_page, route="/profile", on_load=UserState.load_profile)

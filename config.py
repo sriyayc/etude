@@ -20,6 +20,13 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 # db/client.py get_service_client and services/auth_service.py login).
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
+# Public origin of the deployed app. Used to build the redirect target for
+# password-reset / email-confirmation links, so it must be the address the
+# user's browser can reach -- not localhost, once deployed. This value must
+# also be listed under Supabase > Authentication > URL Configuration >
+# Redirect URLs, or Supabase will refuse the redirect.
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3000").rstrip("/")
+
 # Feature flags
 USE_RERANKER = os.getenv("USE_RERANKER", "false").lower() == "true"
 

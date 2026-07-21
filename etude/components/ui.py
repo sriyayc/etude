@@ -155,14 +155,36 @@ def ghost_button(label, icon: str | None = None, **props) -> rx.Component:
 
 
 def text_input(**props) -> rx.Component:
+    """Themed text field.
+
+    rx.input renders a Radix TextField.Root *wrapper* around the real <input>.
+    Padding passed here lands on that wrapper, which squeezes the inner input
+    down to a few px tall while it keeps a ~21px line-height and overflow:clip
+    -- the glyphs get clipped to a thin horizontal band that reads as a
+    strikethrough. So: size the wrapper with height, and pad the inner input.
+    """
     props.setdefault("background", t.BG_CARD)
     props.setdefault("border", f"1px solid {t.BORDER_STRONG}")
     props.setdefault("border_radius", t.RADIUS_SM)
-    props.setdefault("color", t.TEXT)
     props.setdefault("font_family", t.FONT_BODY)
     props.setdefault("font_size", "14px")
-    props.setdefault("padding", "11px 14px")
+    props.setdefault("height", "44px")
+    props.setdefault("padding", "0")
     props.setdefault("width", "100%")
-    props.setdefault("_placeholder", {"color": t.TEXT_MUTED})
     props.setdefault("_focus", {"border_color": t.ACCENT, "outline": "none"})
+
+    style = dict(props.pop("style", {}) or {})
+    style.setdefault(
+        "& .rt-TextFieldInput",
+        {
+            "padding": "0 14px",
+            "height": "100%",
+            "width": "100%",
+            "color": t.TEXT,
+            "fontSize": "14px",
+            "fontFamily": t.FONT_BODY,
+            "&::placeholder": {"color": t.TEXT_MUTED, "opacity": "1"},
+        },
+    )
+    props["style"] = style
     return rx.input(**props)
