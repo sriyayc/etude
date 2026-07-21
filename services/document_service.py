@@ -44,8 +44,12 @@ def upload_document(
             "version":       existing["version"],
         }
 
+    # Namespace by semester/subject and prefix with the content hash so two
+    # different files that happen to share a name (e.g. every subject having a
+    # "unit_4.pdf") can't collide in the bucket. A bare "{type}/{filename}"
+    # path made a chemistry upload 409 against a statics file of the same name.
     filename = os.path.basename(file_path)
-    storage_path = f"{document_type}/{filename}"
+    storage_path = f"{document_type}/{semester}/{subject}/{content_hash[:12]}-{filename}"
 
     upload_pdf(file_path=file_path, storage_path=storage_path)
 

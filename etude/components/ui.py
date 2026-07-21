@@ -173,13 +173,19 @@ def text_input(**props) -> rx.Component:
     props.setdefault("width", "100%")
     props.setdefault("_focus", {"border_color": t.ACCENT, "outline": "none"})
 
-    # A controlled rx.input (value= + on_change=) is wrapped in a debouncer
-    # that defaults to 300ms. Type a password and hit the submit button
-    # inside that window and the handler runs against a stale, half-typed
-    # value -- which surfaces as "Invalid SRN or password" until you click
-    # enough times for the debounce to flush. Sync on every keystroke
-    # instead; these are short form fields, not a search-as-you-type box.
-    props.setdefault("debounce_timeout", 0)
+    # rx.input (value= + on_change=) is wrapped in a debouncer. Zeroing the
+    # timeout makes every keystroke round-trip to the server, whose echoed
+    # value fights the cursor -- typing visibly glitches and drops characters.
+    # So keep a normal debounce for smooth local typing, but force the value
+    # to commit the moment the field loses focus. Clicking a submit button
+    # blurs the field first, and Reflex processes that commit before the
+    # click handler -- so a form still submits correctly on the first click,
+    # without the per-keystroke round-trips.
+    props.setdefault("debounce_timeout", 300)
+    props.setdefault("force_notify_on_blur", True)
+    # Same reasoning for Enter-to-submit: flush the value on Enter so the
+    # keydown handler doesn't fire against a stale one.
+    props.setdefault("force_notify_by_enter", True)
 
     style = dict(props.pop("style", {}) or {})
     style.setdefault(
