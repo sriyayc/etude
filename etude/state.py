@@ -425,8 +425,12 @@ class ResourceState(rx.State):
         self.chat_input = value
 
     @rx.event
-    def ask_ai(self, preset_question: str = ""):
+    async def ask_ai(self, preset_question: str = ""):
         """Ask the RAG-grounded AI about the current subject."""
+
+        # qa_service.ask_question() calls get_current_user() and logs to
+        # query_logs, so this session's token has to be bound first.
+        await bind_session(self)
 
         question = (
             preset_question.strip()
@@ -644,7 +648,10 @@ class QuizState(rx.State):
             self.current_index -= 1
 
     @rx.event
-    def submit_quiz(self):
+    async def submit_quiz(self):
+        # quiz_service records the attempt against get_current_user().
+        await bind_session(self)
+
         score = 0
         for index, question in enumerate(self.questions):
             picked = self.answers[index] if index < len(self.answers) else ""
