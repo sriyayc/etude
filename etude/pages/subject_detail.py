@@ -3,36 +3,47 @@
 import reflex as rx
 
 from etude.components.topbar import topbar
+from etude.components import ui
 from etude.state import UserState, ResourceState
-
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
+from etude.styles import theme as t
 
 
-def source_column(icon: str, label: str, title: str, description: str, count_label: str, href: str):
-    return rx.vstack(
-        rx.text(label, color=ACCENT, font_family="monospace", font_size="11px", letter_spacing="0.15em"),
-        rx.icon(icon, size=32, color=ACCENT_LIGHT, margin_top="24px", margin_bottom="16px"),
-        rx.heading(title, color="white", font_family="'Space Grotesk', sans-serif", font_weight="800", font_size="32px"),
-        rx.text(description, color=ACCENT_LIGHT, font_size="15px", line_height="1.6", margin_top="12px", max_width="420px"),
-        rx.hstack(
-            rx.text(count_label, color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
-            rx.spacer(),
-            rx.link(
-                rx.hstack(rx.text("OPEN", font_family="monospace", font_size="12px"),
-                          rx.icon("arrow-right", size=14), spacing="1"),
-                href=href, color=ACCENT,
+def mode_card(icon: str, title: str, description: str, href: str) -> rx.Component:
+    return rx.link(
+        ui.card(
+            rx.box(
+                rx.icon(icon, size=22, color=t.ACCENT_STRONG),
+                background=t.ACCENT_SOFT,
+                border_radius=t.RADIUS_SM,
+                padding="12px",
+                display="inline-flex",
+                align_self="flex-start",
             ),
-            width="100%",
-            margin_top="40px",
+            rx.text(
+                title,
+                color=t.TEXT,
+                font_family=t.FONT_DISPLAY,
+                font_weight="700",
+                font_size="20px",
+                margin_top="18px",
+            ),
+            ui.subtext(description, font_size="14px", margin_top="8px"),
+            rx.hstack(
+                rx.text("Open", color=t.ACCENT_STRONG, font_size="14px", font_weight="600"),
+                rx.icon("arrow-right", size=16, color=t.ACCENT_STRONG),
+                spacing="1",
+                align_items="center",
+                margin_top="18px",
+            ),
+            hover=True,
+            height="100%",
+            display="flex",
+            flex_direction="column",
         ),
-        align_items="start",
-        padding="48px",
-        flex="1",
-        justify_content="space-between",
-        min_height="360px",
+        href=href,
+        display="block",
+        text_decoration="none",
+        height="100%",
     )
 
 
@@ -40,79 +51,86 @@ def subject_detail_page():
     semester = ResourceState.router.page.params.get("semester", "1")
     subject_code = ResourceState.router.page.params.get("subject_code", "")
 
-    return rx.box(
-
+    return ui.page(
         topbar(breadcrumb=subject_code, active="resources", srn=UserState.srn),
-
-        rx.box(
-
+        ui.container(
             rx.vstack(
-                rx.text(subject_code, color=ACCENT, font_family="monospace", font_size="12px", letter_spacing="0.1em"),
-                rx.heading(
+                rx.text(
+                    subject_code,
+                    color=t.ACCENT_STRONG,
+                    font_family=t.FONT_MONO,
+                    font_size="13px",
+                    font_weight="600",
+                ),
+                ui.heading(
                     ResourceState.current_subject["subject_name"],
-                    color="white", font_family="'Space Grotesk', sans-serif", font_weight="800", font_size="44px",
+                    size="40px",
+                    margin_top="6px",
                 ),
                 rx.hstack(
-                    rx.box(
-                        rx.cond(ResourceState.current_subject["syllabus_status"] == "current", "current syllabus", "stale syllabus"),
-                        border=f"1px solid {ACCENT}", color=ACCENT, font_family="monospace",
-                        font_size="12px", padding="4px 10px",
+                    ui.badge(
+                        rx.cond(
+                            ResourceState.current_subject["syllabus_status"] == "current",
+                            "Current syllabus",
+                            "Stale syllabus",
+                        ),
+                        background=rx.cond(
+                            ResourceState.current_subject["syllabus_status"] == "current",
+                            t.SUCCESS_SOFT, t.BG_SUBTLE,
+                        ),
+                        color=rx.cond(
+                            ResourceState.current_subject["syllabus_status"] == "current",
+                            t.SUCCESS, t.TEXT_MUTED,
+                        ),
                     ),
-                    rx.text(f"{ResourceState.current_subject['slide_count']} slides", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
-                    rx.text(f"{ResourceState.current_subject['page_count']} pages", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
-                    rx.text("AI grounded", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
-                    spacing="4",
-                    align_items="center",
+                    ui.badge(
+                        rx.cond(
+                            ResourceState.current_subject["slide_count"].to(int) > 0,
+                            ResourceState.current_subject["slide_count"].to_string()
+                            + " slides",
+                            "syllabus only",
+                        ),
+                        tone="muted",
+                    ),
+                    ui.badge("AI tutor grounded", tone="accent"),
+                    spacing="2",
                     margin_top="16px",
+                    wrap="wrap",
                 ),
                 align_items="start",
-                padding="48px",
+                spacing="0",
+                margin_bottom="32px",
             ),
 
-            rx.hstack(
-                source_column(
-                    "pencil", "RAW SOURCE", "Lecture Slides",
-                    "The original deck. Page-by-page slides with timestamps, callouts, and instructor annotations preserved.",
-                    f"{ResourceState.current_subject['slide_count']} SLIDES",
+            rx.grid(
+                mode_card(
+                    "presentation",
+                    "Lecture slides",
+                    "The original deck rendered as-is, with an AI tutor pinned alongside.",
                     f"/resources/{semester}/{subject_code}/slides",
                 ),
-                rx.box(width="1px", bg=BORDER),
-                source_column(
-                    "file-text", "AI COMPILED", "Compiled Notes",
-                    "Slides + textbook merged into one linear narrative. Every sentence cites its origin (slide # or §).",
-                    f"{ResourceState.current_subject['page_count']} PAGES",
+                mode_card(
+                    "file-text",
+                    "Compiled notes",
+                    "Slides and textbook merged into one linear, cited narrative per unit.",
                     f"/resources/{semester}/{subject_code}/notes",
                 ),
-                width="100%",
-                spacing="0",
-                border_top=f"1px solid {BORDER}",
+                mode_card(
+                    "layers",
+                    "Flashcards",
+                    "Active-recall cards generated once per unit and shared by everyone.",
+                    f"/resources/{semester}/{subject_code}/flashcards",
+                ),
+                mode_card(
+                    "clipboard-check",
+                    "Quiz",
+                    "A syllabus-bound self-assessment for each unit, ready to take.",
+                    f"/resources/{semester}/{subject_code}/quiz",
+                ),
+                columns=rx.breakpoints(initial="1", sm="2"),
+                spacing="4",
+                align_items="stretch",
             ),
-
-            rx.hstack(
-                rx.text(
-                    "// tip — once inside, the AI sidebar stays pinned. Flashcards and quizzes never close it.",
-                    color=ACCENT_LIGHT, font_family="monospace", font_size="12px",
-                ),
-                rx.spacer(),
-                rx.link(
-                    rx.hstack(rx.text("→ FLASHCARDS", font_family="monospace", font_size="12px"), spacing="1"),
-                    href=f"/resources/{semester}/{subject_code}/flashcards", color=ACCENT,
-                ),
-                rx.link(
-                    rx.hstack(rx.text("→ JUMP TO QUIZ", font_family="monospace", font_size="12px"), spacing="1"),
-                    href=f"/resources/{semester}/{subject_code}/quiz", color=ACCENT,
-                    margin_left="32px",
-                ),
-                width="100%",
-                padding="20px 48px",
-                border_top=f"1px solid {BORDER}",
-            ),
-
-            max_width="1600px",
-            margin="0 auto",
         ),
-
-        bg=BACKGROUND,
-        min_height="100vh",
         on_mount=ResourceState.load_subject,
     )

@@ -3,141 +3,124 @@
 import reflex as rx
 
 from etude.components.topbar import topbar
+from etude.components import ui
 from etude.state import UserState
-
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
-PODIUM_BG = "#0A2647"
+from etude.styles import theme as t
 
 
-def podium_card(row: rx.Var):
-    return rx.vstack(
-        rx.icon("trophy", size=26, color=ACCENT_LIGHT),
-        rx.text(f"#{row['rank']}", color="white", font_family="'Space Grotesk', sans-serif",
-                font_weight="800", font_size="40px"),
-        rx.text(row["full_name"], color="white", font_weight="600", font_size="16px"),
-        rx.text(row["srn"], color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
-        rx.text(f"{row['points']} pts", color=ACCENT_LIGHT, font_family="monospace", font_size="13px"),
-        bg=PODIUM_BG,
-        padding="32px",
-        spacing="1",
-        align_items="center",
+def podium_card(row: rx.Var, idx: int):
+    accent = rx.match(
+        idx,
+        (0, "#E7B23D"),
+        (1, "#9AA7B2"),
+        (2, "#C08552"),
+        t.ACCENT_STRONG,
+    )
+    return ui.card(
+        rx.vstack(
+            rx.box(
+                rx.icon("trophy", size=22, color=accent),
+                background=t.ACCENT_SOFT,
+                border_radius=t.RADIUS_PILL,
+                padding="12px",
+                display="flex",
+            ),
+            rx.text(
+                "#" + row["rank"].to_string(),
+                color=t.TEXT,
+                font_family=t.FONT_DISPLAY,
+                font_weight="700",
+                font_size="34px",
+            ),
+            rx.text(row["full_name"], color=t.TEXT, font_weight="600", font_size="16px"),
+            rx.text(row["srn"], color=t.TEXT_MUTED, font_family=t.FONT_MONO, font_size="12px"),
+            ui.badge(row["points"].to_string() + " pts", tone="accent"),
+            spacing="2",
+            align_items="center",
+        ),
         flex="1",
-        border_right=f"1px solid {BORDER}",
+        padding="28px 20px",
     )
 
 
 def table_row(row: rx.Var):
     is_you = row["srn"] == UserState.srn
     return rx.hstack(
-        rx.text(f"#{row['rank']}", color="white", font_family="monospace", font_size="13px", width="60px"),
+        rx.text("#" + row["rank"].to_string(), color=t.TEXT_BODY, font_family=t.FONT_MONO, font_size="14px", width="56px"),
         rx.hstack(
-            rx.text(row["full_name"], color="white", font_size="14px"),
-            rx.cond(
-                is_you,
-                rx.box("YOU", bg=ACCENT, color="black", font_family="monospace",
-                       font_size="10px", font_weight="700", padding="2px 6px"),
-            ),
+            rx.text(row["full_name"], color=t.TEXT, font_size="14px", font_weight="500"),
+            rx.cond(is_you, ui.badge("You", tone="accent"), rx.fragment()),
             spacing="2",
             width="240px",
+            align_items="center",
         ),
-        rx.text(row["srn"], color=ACCENT_LIGHT, font_family="monospace", font_size="13px", flex="1"),
-        rx.text(row["points"], color="white", font_weight="700", font_size="14px", width="80px", text_align="right"),
+        rx.text(row["srn"], color=t.TEXT_MUTED, font_family=t.FONT_MONO, font_size="13px", flex="1"),
+        rx.text(row["points"], color=t.TEXT, font_weight="700", font_size="14px", width="80px", text_align="right"),
         rx.hstack(
-            rx.icon("flame", size=13, color=ACCENT_LIGHT),
-            rx.text(f"{row['streak']}d", color=ACCENT_LIGHT, font_family="monospace", font_size="12px"),
+            rx.icon("flame", size=14, color=t.TEXT_MUTED),
+            rx.text(row["streak"].to_string() + "d", color=t.TEXT_MUTED, font_size="13px"),
             spacing="1",
             width="70px",
             justify_content="end",
+            align_items="center",
         ),
         width="100%",
-        padding="16px 20px",
-        border_bottom=f"1px solid {BORDER}",
-        border_left=rx.cond(is_you, f"3px solid {ACCENT}", "3px solid transparent"),
-        bg=rx.cond(is_you, "rgba(93,138,168,0.08)", "transparent"),
+        padding="14px 20px",
+        border_bottom=f"1px solid {t.BORDER}",
+        background=rx.cond(is_you, t.ACCENT_SOFT, "transparent"),
         align_items="center",
     )
 
 
 def leaderboard_page():
-    return rx.box(
-
-        topbar(breadcrumb="leaderboard", active="leaderboard", srn=UserState.srn),
-
-        rx.box(
-
+    return ui.page(
+        topbar(breadcrumb="Leaderboard", active="leaderboard", srn=UserState.srn),
+        ui.container(
             rx.hstack(
                 rx.vstack(
-                    rx.text(
-                        "// RANK UP · SYLLABUS QUIZZES",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="11px",
-                        letter_spacing="0.2em",
-                    ),
-                    rx.heading(
-                        "Leaderboard.",
-                        color="white",
-                        font_family="'Space Grotesk', sans-serif",
-                        font_weight="800",
-                        font_size="52px",
-                    ),
+                    ui.eyebrow("Syllabus quizzes"),
+                    ui.heading("Leaderboard", size="38px", margin_top="6px"),
                     align_items="start",
-                    spacing="2",
+                    spacing="0",
                 ),
-
                 rx.spacer(),
-
-                rx.text(
-                    "weekly · resets monday 00:00 IST",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="12px",
-                ),
-
+                ui.badge("Weekly · resets Monday", tone="muted"),
                 width="100%",
-                align_items="start",
-                padding="60px 48px 40px",
+                align_items="center",
+                margin_bottom="28px",
             ),
 
-            rx.hstack(
-                rx.foreach(UserState.leaderboard_rows[:3], podium_card),
-                spacing="0",
-                border=f"1px solid {BORDER}",
-                margin="0 48px",
+            rx.grid(
+                rx.foreach(
+                    UserState.leaderboard_rows[:3],
+                    lambda row, idx: podium_card(row, idx),
+                ),
+                columns=rx.breakpoints(initial="1", sm="3"),
+                spacing="4",
             ),
 
-            rx.vstack(
+            ui.card(
                 rx.hstack(
-                    rx.text("RANK", color=ACCENT, font_family="monospace", font_size="11px", width="60px"),
-                    rx.text("NAME", color=ACCENT, font_family="monospace", font_size="11px", width="240px"),
-                    rx.text("SRN", color=ACCENT, font_family="monospace", font_size="11px", flex="1"),
-                    rx.text("POINTS", color=ACCENT, font_family="monospace", font_size="11px", width="80px", text_align="right"),
-                    rx.text("STREAK", color=ACCENT, font_family="monospace", font_size="11px", width="70px", text_align="right"),
+                    rx.text("Rank", color=t.TEXT_MUTED, font_size="12px", font_weight="600", width="56px"),
+                    rx.text("Name", color=t.TEXT_MUTED, font_size="12px", font_weight="600", width="240px"),
+                    rx.text("SRN", color=t.TEXT_MUTED, font_size="12px", font_weight="600", flex="1"),
+                    rx.text("Points", color=t.TEXT_MUTED, font_size="12px", font_weight="600", width="80px", text_align="right"),
+                    rx.text("Streak", color=t.TEXT_MUTED, font_size="12px", font_weight="600", width="70px", text_align="right"),
                     width="100%",
-                    padding="12px 20px",
-                    border_bottom=f"1px solid {BORDER}",
+                    padding="14px 20px",
+                    border_bottom=f"1px solid {t.BORDER}",
                 ),
                 rx.foreach(UserState.leaderboard_rows, table_row),
-                width="100%",
-                margin="24px 48px 0",
-                spacing="0",
+                padding="0",
+                overflow="hidden",
+                margin_top="24px",
             ),
 
             rx.text(
-                "↑ complete quizzes to climb · +100 pts per correct answer · streak doubles weekly bonus",
-                color=ACCENT_LIGHT,
-                font_family="monospace",
-                font_size="12px",
-                padding="24px 48px 60px",
+                "Complete quizzes to climb — +100 pts per correct answer, and streaks boost your weekly bonus.",
+                color=t.TEXT_MUTED,
+                font_size="13px",
+                margin_top="20px",
             ),
-
-            max_width="1600px",
-            margin="0 auto",
         ),
-
-        bg=BACKGROUND,
-        min_height="100vh",
     )

@@ -9,36 +9,24 @@ import reflex as rx
 from etude.components.ai_sidebar import ai_sidebar
 from etude.components.topbar import topbar
 from etude.state import ResourceState, UserState
+from etude.styles import theme as t
 
 
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
-
-
-def toolbar_item(icon: str, label: str) -> rx.Component:
-    """Render one toolbar action."""
-
-    return rx.hstack(
-        rx.icon(
-            icon,
-            size=14,
-            color=ACCENT_LIGHT,
+def toolbar_link(icon: str, label: str, href: str, external: bool = False) -> rx.Component:
+    return rx.link(
+        rx.hstack(
+            rx.icon(icon, size=15, color=t.TEXT_BODY),
+            rx.text(label, color=t.TEXT_BODY, font_size="13px", font_weight="500"),
+            spacing="2",
+            padding="7px 12px",
+            border_radius=t.RADIUS_SM,
+            align_items="center",
+            transition="background .15s ease, color .15s ease",
+            _hover={"background": t.BG_SUBTLE, "color": t.ACCENT_STRONG},
         ),
-        rx.text(
-            label,
-            color=ACCENT_LIGHT,
-            font_family="monospace",
-            font_size="12px",
-            letter_spacing="0.05em",
-        ),
-        spacing="2",
-        padding="8px 14px",
-        cursor="pointer",
-        _hover={
-            "color": "white",
-        },
+        href=href,
+        is_external=external,
+        text_decoration="none",
     )
 
 
@@ -47,134 +35,82 @@ def slides_viewer_page() -> rx.Component:
 
     return rx.box(
         topbar(
-            breadcrumb="slides",
+            breadcrumb="Slides",
             active="resources",
             srn=UserState.srn,
         ),
 
         # ---------------- Toolbar ----------------
         rx.hstack(
-            rx.link(
-                toolbar_item("download", "DOWNLOAD"),
-                href=ResourceState.pdf_url,
-                is_external=True,
-                text_decoration="none",
-            ),
-
-            rx.link(
-                toolbar_item("layers", "FLASHCARDS"),
-                href=(
-                    f"/resources/{ResourceState.semester}/"
-                    f"{ResourceState.subject_code}/flashcards"
-                ),
-                text_decoration="none",
-            ),
-
-            rx.link(
-                toolbar_item(
-                    "clipboard-check",
-                    "QUIZ",
-                ),
-                href=ResourceState.quiz_url,
-                text_decoration="none",
-            ),
-
-            rx.spacer(),
-
             rx.hstack(
-                rx.icon(
-                    "sparkles",
-                    size=14,
-                    color=ACCENT,
+                rx.text(
+                    ResourceState.current_subject["subject_name"],
+                    color=t.TEXT,
+                    font_weight="600",
+                    font_size="15px",
                 ),
                 rx.text(
-                    "ETUDE AI · ON",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="12px",
+                    ResourceState.subject_code + " · lecture slides",
+                    color=t.TEXT_MUTED,
+                    font_size="13px",
+                    font_family=t.FONT_MONO,
                 ),
-                spacing="1",
-                border=f"1px solid {ACCENT}",
-                padding="8px 14px",
+                spacing="3",
+                align_items="center",
             ),
-
+            rx.spacer(),
+            toolbar_link("download", "Download", ResourceState.pdf_url, external=True),
+            toolbar_link(
+                "layers", "Flashcards",
+                f"/resources/{ResourceState.semester}/{ResourceState.subject_code}/flashcards",
+            ),
+            toolbar_link("clipboard-check", "Quiz", ResourceState.quiz_url),
             width="100%",
             padding="10px 24px",
-            border_bottom=f"1px solid {BORDER}",
+            border_bottom=f"1px solid {t.BORDER}",
             align_items="center",
+            background=t.BG_CARD,
         ),
 
         # ---------------- Main content ----------------
         rx.hstack(
-            # ============================================================
             # Slide area
-            # ============================================================
-            rx.vstack(
-                rx.hstack(
-                    rx.text(
-                        "LECTURE SLIDES",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-
-                    rx.text(
-                        ResourceState.current_subject[
-                            "subject_name"
-                        ],
-                        color="white",
-                        font_size="13px",
-                    ),
-
-                    rx.spacer(),
-
-                    rx.text(
-                        ResourceState.current_subject["page_count"],
-                        " pages",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-
-                    width="100%",
-                    padding="14px 24px",
-                    border_bottom=f"1px solid {BORDER}",
-                    align_items="center",
-                ),
-
-                # The original PDF, rendered as-is via the browser's
-                # native viewer -- page navigation, zoom and search are
-                # all built in, so there's no custom PREV/NEXT here.
+            rx.box(
                 rx.cond(
                     ResourceState.pdf_url != "",
                     rx.el.iframe(
                         src=ResourceState.pdf_url,
                         width="100%",
-                        height="calc(100vh - 140px)",
+                        height="calc(100vh - 118px)",
                         style={"border": "none"},
                     ),
                     rx.center(
-                        rx.text(
-                            "No slide PDF available for this subject.",
-                            color=ACCENT_LIGHT,
-                            font_family="monospace",
-                            font_size="13px",
+                        rx.vstack(
+                            rx.icon("file-x", size=30, color=t.TEXT_MUTED),
+                            rx.text(
+                                "No slide PDF available for this subject yet.",
+                                color=t.TEXT_BODY,
+                                font_size="15px",
+                                font_weight="500",
+                            ),
+                            rx.text(
+                                "You can still use the AI tutor on the right.",
+                                color=t.TEXT_MUTED,
+                                font_size="13px",
+                            ),
+                            spacing="2",
+                            align_items="center",
                         ),
                         width="100%",
-                        height="calc(100vh - 140px)",
+                        height="calc(100vh - 118px)",
                     ),
                 ),
-
                 flex="1",
-                align_items="start",
-                spacing="0",
                 min_width="0",
-                min_height="0",
+                background=t.BG_SUBTLE,
             ),
 
-            # ============================================================
             # AI sidebar
-            # ============================================================
             ai_sidebar(
                 context_suffix="slides",
                 welcome_text=(
@@ -200,10 +136,11 @@ def slides_viewer_page() -> rx.Component:
             width="100%",
             spacing="0",
             align_items="stretch",
-            height="calc(100vh - 140px)",
+            height="calc(100vh - 118px)",
         ),
 
-        background=BACKGROUND,
+        background=t.BG_PAGE,
         min_height="100vh",
+        font_family=t.FONT_BODY,
         on_mount=ResourceState.load_slides,
     )

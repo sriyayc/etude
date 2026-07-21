@@ -12,11 +12,17 @@ from .pages.upload import upload_page
 from .pages.quiz import quiz_page
 from .pages.flashcards import flashcards_page
 from .pages.notes import notes_page
-from etude.styles.theme import FONT_STYLESHEET
+from etude.styles import theme as t
 from etude.state import UserState, QuizState, FlashcardState, NotesState
 
 app = rx.App(
-    stylesheets=[FONT_STYLESHEET],
+    stylesheets=[t.FONT_STYLESHEET],
+    style={
+        "font_family": t.FONT_BODY,
+        "background": t.BG_PAGE,
+        "color": t.TEXT,
+        "-webkit-font-smoothing": "antialiased",
+    },
 )
 
 

@@ -4,296 +4,185 @@ import reflex as rx
 
 from etude.components.ai_sidebar import ai_sidebar
 from etude.components.topbar import topbar
+from etude.components import ui
 from etude.state import QuizState, ResourceState, UserState
+from etude.styles import theme as t
 
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
-PANEL_BG = "#0A2647"
+
+def panel_header(back_label: str, on_back, right_label: str) -> rx.Component:
+    return rx.hstack(
+        rx.hstack(
+            rx.icon("chevron-left", size=16, color=t.TEXT_MUTED),
+            rx.text(back_label, color=t.TEXT_BODY, font_size="13px", font_weight="500"),
+            spacing="1",
+            on_click=on_back,
+            cursor="pointer",
+            align_items="center",
+            _hover={"color": t.ACCENT_STRONG},
+        ),
+        rx.spacer(),
+        ui.badge(right_label, tone="accent"),
+        width="100%",
+        padding="14px 32px",
+        border_bottom=f"1px solid {t.BORDER}",
+        align_items="center",
+        background=t.BG_CARD,
+    )
 
 
 def unit_card(unit: rx.Var) -> rx.Component:
-    """Render one unit card for selection."""
-    return rx.box(
-        rx.vstack(
-            rx.hstack(
-                rx.text(
-                    f"UNIT {unit['unit_number']}",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="11px",
-                    letter_spacing="0.1em",
-                ),
-                rx.spacer(),
-                rx.icon("chevron-right", size=14, color=ACCENT_LIGHT),
-                width="100%",
-            ),
-            rx.heading(
-                unit["unit_title"],
-                color="white",
-                font_family="'Space Grotesk', sans-serif",
-                font_weight="700",
-                font_size="20px",
-                margin_top="10px",
-                line_height="1.2",
-            ),
-            rx.text(
-                f"{unit['topic_count']} topics defined in syllabus",
-                color=ACCENT_LIGHT,
-                font_family="monospace",
-                font_size="12px",
-                margin_top="16px",
-            ),
-            align_items="start",
+    return ui.card(
+        rx.hstack(
+            ui.badge("Unit " + unit["unit_number"].to_string(), tone="accent"),
+            rx.spacer(),
+            rx.icon("chevron-right", size=16, color=t.TEXT_MUTED),
             width="100%",
+            align_items="center",
+        ),
+        rx.text(
+            unit["unit_title"],
+            color=t.TEXT,
+            font_family=t.FONT_DISPLAY,
+            font_weight="700",
+            font_size="18px",
+            margin_top="12px",
+            line_height="1.25",
+        ),
+        rx.text(
+            unit["topic_count"].to_string() + " syllabus topics",
+            color=t.TEXT_MUTED,
+            font_size="13px",
+            margin_top="12px",
         ),
         on_click=QuizState.generate_quiz(unit["unit_number"], unit["unit_title"]),
-        padding="24px",
-        border=f"1px solid {BORDER}",
+        hover=True,
         cursor="pointer",
-        _hover={
-            "background": "rgba(93,138,168,0.06)",
-            "border_color": ACCENT,
-        },
-        height="180px",
+        height="100%",
     )
 
 
 def option_button(option: rx.Var) -> rx.Component:
-    """Render one MCQ option."""
     is_selected = QuizState.selected_answer == option
-
     return rx.box(
-        rx.text(
-            option,
-            color=rx.cond(is_selected, "white", "#B4C6D0"),
-            font_size="14px",
-        ),
+        rx.text(option, color=rx.cond(is_selected, t.ACCENT_STRONG, t.TEXT_BODY), font_size="15px", font_weight="500"),
         on_click=QuizState.select_answer(option),
-        border=f"1px solid {rx.cond(is_selected, ACCENT, BORDER)}",
-        background=rx.cond(is_selected, "rgba(93, 138, 168, 0.12)", "transparent"),
-        padding="16px",
+        border=f"1px solid {rx.cond(is_selected, t.ACCENT, t.BORDER)}",
+        background=rx.cond(is_selected, t.ACCENT_SOFT, t.BG_CARD),
+        border_radius=t.RADIUS_MD,
+        padding="15px 16px",
         cursor="pointer",
-        _hover={"border_color": ACCENT},
+        transition="all .12s ease",
+        _hover={"border_color": t.ACCENT},
         width="100%",
         margin_bottom="10px",
     )
 
 
-def result_question_card(item: rx.Var, idx: int) -> rx.Component:
-    """Render one review question card. Avoids rx.foreach over Any-typed options."""
-    correct_ans = item["answer"]
-
-    return rx.vstack(
-        rx.heading(
-            rx.text.span("Q"),
-            rx.text.span(idx + 1),
-            rx.text.span(": "),
-            rx.text.span(item["question"]),
-            color="white",
-            font_size="15px",
-            font_family="'Space Grotesk', sans-serif",
-            font_weight="700",
-        ),
-        # Static list of 4 labelled option slots — avoids foreach-over-Any
-        rx.vstack(
-            rx.box(
-                rx.hstack(
-                    rx.text("A: ", item["options"][0], color=rx.cond(item["options"][0] == correct_ans, "#22C55E", "#7393B3"), font_size="14px"),
-                    rx.spacer(),
-                    rx.cond(item["options"][0] == correct_ans, rx.icon("check", size=14, color="#22C55E"), rx.fragment()),
-                    width="100%",
-                ),
-                border=rx.cond(item["options"][0] == correct_ans, "1px solid #22C55E", f"1px solid {BORDER}"),
-                background=rx.cond(item["options"][0] == correct_ans, "rgba(34, 197, 94, 0.08)", "transparent"),
-                padding="12px", width="100%",
+def _review_option(item: rx.Var, i: int, letter: str) -> rx.Component:
+    correct = item["options"][i] == item["answer"]
+    return rx.box(
+        rx.hstack(
+            rx.text(
+                letter + ".  ", item["options"][i],
+                color=rx.cond(correct, t.SUCCESS, t.TEXT_BODY),
+                font_size="14px",
+                font_weight=rx.cond(correct, "600", "400"),
             ),
-            rx.box(
-                rx.hstack(
-                    rx.text("B: ", item["options"][1], color=rx.cond(item["options"][1] == correct_ans, "#22C55E", "#7393B3"), font_size="14px"),
-                    rx.spacer(),
-                    rx.cond(item["options"][1] == correct_ans, rx.icon("check", size=14, color="#22C55E"), rx.fragment()),
-                    width="100%",
-                ),
-                border=rx.cond(item["options"][1] == correct_ans, "1px solid #22C55E", f"1px solid {BORDER}"),
-                background=rx.cond(item["options"][1] == correct_ans, "rgba(34, 197, 94, 0.08)", "transparent"),
-                padding="12px", width="100%",
-            ),
-            rx.box(
-                rx.hstack(
-                    rx.text("C: ", item["options"][2], color=rx.cond(item["options"][2] == correct_ans, "#22C55E", "#7393B3"), font_size="14px"),
-                    rx.spacer(),
-                    rx.cond(item["options"][2] == correct_ans, rx.icon("check", size=14, color="#22C55E"), rx.fragment()),
-                    width="100%",
-                ),
-                border=rx.cond(item["options"][2] == correct_ans, "1px solid #22C55E", f"1px solid {BORDER}"),
-                background=rx.cond(item["options"][2] == correct_ans, "rgba(34, 197, 94, 0.08)", "transparent"),
-                padding="12px", width="100%",
-            ),
-            rx.box(
-                rx.hstack(
-                    rx.text("D: ", item["options"][3], color=rx.cond(item["options"][3] == correct_ans, "#22C55E", "#7393B3"), font_size="14px"),
-                    rx.spacer(),
-                    rx.cond(item["options"][3] == correct_ans, rx.icon("check", size=14, color="#22C55E"), rx.fragment()),
-                    width="100%",
-                ),
-                border=rx.cond(item["options"][3] == correct_ans, "1px solid #22C55E", f"1px solid {BORDER}"),
-                background=rx.cond(item["options"][3] == correct_ans, "rgba(34, 197, 94, 0.08)", "transparent"),
-                padding="12px", width="100%",
-            ),
+            rx.spacer(),
+            rx.cond(correct, rx.icon("check", size=15, color=t.SUCCESS), rx.fragment()),
             width="100%",
-            margin_top="12px",
-            spacing="1",
+            align_items="center",
+        ),
+        border=f"1px solid {rx.cond(correct, t.SUCCESS, t.BORDER)}",
+        background=rx.cond(correct, t.SUCCESS_SOFT, t.BG_CARD),
+        border_radius=t.RADIUS_SM,
+        padding="11px 14px",
+        width="100%",
+    )
+
+
+def result_question_card(item: rx.Var, idx: int) -> rx.Component:
+    return ui.card(
+        rx.text(
+            "Q" + (idx + 1).to_string() + ".  ", item["question"],
+            color=t.TEXT,
+            font_size="15px",
+            font_family=t.FONT_DISPLAY,
+            font_weight="700",
+            line_height="1.4",
+        ),
+        rx.vstack(
+            _review_option(item, 0, "A"),
+            _review_option(item, 1, "B"),
+            _review_option(item, 2, "C"),
+            _review_option(item, 3, "D"),
+            width="100%",
+            margin_top="14px",
+            spacing="2",
         ),
         rx.box(
             rx.text(
-                "Explanation: ",
-                rx.text.span(item["explanation"], color="#B4C6D0"),
-                color=ACCENT,
-                font_family="monospace",
-                font_size="12px",
+                "Explanation  ",
+                rx.text.span(item["explanation"], color=t.TEXT_BODY, font_weight="400"),
+                color=t.ACCENT_STRONG,
+                font_size="13px",
+                font_weight="600",
             ),
             margin_top="16px",
-            border_top=f"1px solid {BORDER}",
-            padding_top="12px",
+            border_top=f"1px solid {t.BORDER}",
+            padding_top="14px",
             width="100%",
         ),
+        margin_bottom="16px",
         width="100%",
-        border=f"1px solid {BORDER}",
-        padding="24px",
-        margin_bottom="20px",
-        align_items="start",
     )
 
 
 def quiz_results_view() -> rx.Component:
-    """Render the results of the completed quiz."""
     return rx.vstack(
-        rx.hstack(
-            rx.hstack(
-                rx.icon("chevron-left", size=14, color=ACCENT_LIGHT),
-                rx.text(
-                    "BACK TO UNITS",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="12px",
-                ),
-                spacing="1",
-                on_click=QuizState.back_to_units,
-                cursor="pointer",
-                _hover={"color": "white"},
-            ),
-            rx.spacer(),
-            rx.text(
-                "QUIZ REVIEW",
-                color=ACCENT,
-                font_family="monospace",
-                font_size="12px",
-                letter_spacing="0.1em",
-            ),
-            width="100%",
-            padding="14px 24px",
-            border_bottom=f"1px solid {BORDER}",
-            align_items="center",
-        ),
-
-        rx.vstack(
-            # Result Score Banner
+        panel_header("Back to units", QuizState.back_to_units, "Quiz review"),
+        rx.box(
             rx.vstack(
-                rx.text(
-                    "SCORE ACHIEVED",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="12px",
-                    letter_spacing="0.2em",
-                ),
+                ui.eyebrow("Score achieved"),
                 rx.heading(
-                    f"{QuizState.score} / {QuizState.questions.length()}",
-                    color="white",
-                    font_family="'Space Grotesk', sans-serif",
-                    font_weight="800",
-                    font_size="60px",
-                    margin_y="10px",
+                    QuizState.score.to_string() + " / " + QuizState.questions.length().to_string(),
+                    color=t.ACCENT_STRONG,
+                    font_family=t.FONT_DISPLAY,
+                    font_weight="700",
+                    font_size="56px",
+                    margin_y="8px",
                 ),
-                rx.hstack(
-                    rx.box(
-                        "completed",
-                        border=f"1px solid {ACCENT}",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="11px",
-                        padding="3px 8px",
-                    ),
-                    rx.text(
-                        f"Attempt saved to leaderboard profile · +{QuizState.score * 100} points",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-                    spacing="3",
-                    align_items="center",
+                rx.text(
+                    "Attempt saved · +" + (QuizState.score * 100).to_string() + " points",
+                    color=t.TEXT_MUTED,
+                    font_size="14px",
                 ),
                 align_items="center",
-                width="100%",
-                padding="40px",
-                border_bottom=f"1px solid {BORDER}",
-                background="rgba(93, 138, 168, 0.04)",
-            ),
-
-            # Question Review list
-            rx.vstack(
-                rx.text(
-                    "QUESTION BY QUESTION ANALYSIS",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="12px",
-                    letter_spacing="0.1em",
-                    margin_bottom="16px",
-                ),
-                # We can map each question in the list
-                rx.foreach(
-                    QuizState.questions,
-                    lambda q, idx: result_question_card(q, idx)
-                ),
-                width="100%",
-                align_items="start",
-                padding="40px",
-            ),
-
-            # Action buttons
-            rx.hstack(
-                rx.button(
-                    "Retake Quiz",
-                    on_click=QuizState.retake_quiz,
-                    background=ACCENT,
-                    color="black",
-                    font_family="monospace",
-                    font_size="12px",
-                    border_radius="0",
-                    padding="12px 24px",
-                    cursor="pointer",
-                    _hover={"opacity": 0.8},
-                ),
-                rx.button(
-                    "Choose Another Unit",
-                    on_click=QuizState.back_to_units,
-                    background="transparent",
-                    border=f"1px solid {BORDER}",
-                    color="white",
-                    font_family="monospace",
-                    font_size="12px",
-                    border_radius="0",
-                    padding="12px 24px",
-                    cursor="pointer",
-                    _hover={"background": "rgba(255,255,255,0.05)"},
-                ),
-                spacing="3",
-                padding="0 40px 40px",
+                spacing="0",
             ),
             width="100%",
-            align_items="start",
-            spacing="0",
+            padding="40px",
+            background=t.BG_CARD,
+            border_bottom=f"1px solid {t.BORDER}",
+        ),
+        rx.box(
+            rx.text(
+                "Question by question",
+                color=t.TEXT,
+                font_weight="600",
+                font_size="16px",
+                margin_bottom="16px",
+            ),
+            rx.foreach(QuizState.questions, lambda q, idx: result_question_card(q, idx)),
+            rx.hstack(
+                ui.primary_button("Retake quiz", icon="rotate-ccw", on_click=QuizState.retake_quiz),
+                ui.ghost_button("Choose another unit", on_click=QuizState.back_to_units),
+                spacing="3",
+                margin_top="8px",
+            ),
+            width="100%",
+            padding="32px 40px 48px",
+            max_width="760px",
         ),
         flex="1",
         width="100%",
@@ -304,113 +193,66 @@ def quiz_results_view() -> rx.Component:
 
 
 def quiz_view() -> rx.Component:
-    """Render the active quiz viewer."""
     return rx.vstack(
-        rx.hstack(
-            rx.hstack(
-                rx.icon("chevron-left", size=14, color=ACCENT_LIGHT),
-                rx.text(
-                    "QUIT QUIZ",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="12px",
-                ),
-                spacing="1",
-                on_click=QuizState.back_to_units,
-                cursor="pointer",
-                _hover={"color": "white"},
-            ),
-            rx.spacer(),
-            rx.text(
-                QuizState.progress_label,
-                color=ACCENT,
-                font_family="monospace",
-                font_size="12px",
-                letter_spacing="0.1em",
-            ),
-            width="100%",
-            padding="14px 24px",
-            border_bottom=f"1px solid {BORDER}",
-            align_items="center",
-        ),
-
-        rx.vstack(
+        panel_header("Quit quiz", QuizState.back_to_units, QuizState.progress_label),
+        rx.box(
             rx.vstack(
-                rx.text(
-                    f"QUESTION {QuizState.current_index + 1} OF {QuizState.questions.length()}",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="11px",
-                    letter_spacing="0.2em",
+                ui.eyebrow(
+                    "Question " + (QuizState.current_index + 1).to_string()
+                    + " of " + QuizState.questions.length().to_string()
                 ),
                 rx.heading(
                     QuizState.current_question["question"],
-                    color="white",
-                    font_family="'Space Grotesk', sans-serif",
-                    font_weight="800",
-                    font_size="28px",
+                    color=t.TEXT,
+                    font_family=t.FONT_DISPLAY,
+                    font_weight="700",
+                    font_size="26px",
+                    line_height="1.3",
                     margin_top="10px",
                 ),
                 align_items="start",
-                padding="40px",
-                width="100%",
+                spacing="0",
+                margin_bottom="28px",
             ),
-
-            # Options
             rx.box(
-                rx.foreach(
-                    QuizState.current_question_options,
-                    option_button
-                ),
-                padding_x="40px",
+                rx.foreach(QuizState.current_question_options, option_button),
                 width="100%",
             ),
-
-            # Footer / Navigation
             rx.hstack(
                 rx.hstack(
-                    rx.icon("chevron-left", size=14),
-                    rx.text("PREV", font_family="monospace", font_size="12px"),
+                    rx.icon("chevron-left", size=16),
+                    rx.text("Previous", font_size="14px", font_weight="500"),
                     spacing="1",
                     on_click=QuizState.prev_question,
                     cursor="pointer",
-                    color=rx.cond(QuizState.current_index > 0, ACCENT_LIGHT, "rgba(255,255,255,0.15)"),
+                    align_items="center",
+                    color=rx.cond(QuizState.current_index > 0, t.TEXT_BODY, t.BORDER_STRONG),
                 ),
-
                 rx.spacer(),
-
                 rx.cond(
                     QuizState.is_last_question,
-                    rx.button(
-                        "SUBMIT QUIZ",
-                        on_click=QuizState.submit_quiz,
-                        background=ACCENT,
-                        color="black",
-                        font_family="monospace",
-                        font_size="12px",
-                        border_radius="0",
-                        padding="8px 20px",
-                        cursor="pointer",
-                        _hover={"opacity": 0.8},
-                    ),
-                    rx.hstack(
-                        rx.text("NEXT", font_family="monospace", font_size="12px"),
-                        rx.icon("chevron-right", size=14),
-                        spacing="1",
+                    ui.primary_button("Submit quiz", icon="check", on_click=QuizState.submit_quiz),
+                    rx.box(
+                        rx.hstack(
+                            rx.text("Next", font_size="14px", font_weight="600"),
+                            rx.icon("chevron-right", size=16),
+                            spacing="1",
+                            align_items="center",
+                        ),
                         on_click=QuizState.next_question,
                         cursor="pointer",
-                        color=ACCENT_LIGHT,
+                        color=t.ACCENT_STRONG,
                     ),
                 ),
                 width="100%",
-                padding="30px 40px",
-                border_top=f"1px solid {BORDER}",
-                margin_top="40px",
+                margin_top="28px",
+                padding_top="20px",
+                border_top=f"1px solid {t.BORDER}",
                 align_items="center",
             ),
             width="100%",
-            align_items="start",
-            spacing="0",
+            max_width="720px",
+            padding="40px",
         ),
         flex="1",
         width="100%",
@@ -420,117 +262,74 @@ def quiz_view() -> rx.Component:
     )
 
 
-def quiz_page() -> rx.Component:
-    """Render the quiz page."""
+def unit_picker() -> rx.Component:
     return rx.box(
-        topbar(
-            breadcrumb="quiz",
-            active="resources",
-            srn=UserState.srn,
+        rx.vstack(
+            ui.eyebrow(ResourceState.subject_code + " · self assessment"),
+            ui.heading("Take a quiz", size="34px", margin_top="6px"),
+            ui.subtext(
+                "Pick a syllabus unit to generate a 5-question test grounded in your syllabus.",
+                margin_top="8px",
+            ),
+            align_items="start",
+            spacing="0",
+            margin_bottom="28px",
         ),
-
-        rx.hstack(
-            # Left panel - picker, active quiz, or results
-            rx.cond(
-                QuizState.has_quiz,
-                rx.cond(
-                    QuizState.submitted,
-                    quiz_results_view(),
-                    quiz_view()
-                ),
+        rx.cond(
+            QuizState.quiz_loading,
+            rx.center(
                 rx.vstack(
+                    rx.spinner(color=t.ACCENT, size="3"),
+                    rx.text("Generating quiz questions…", color=t.TEXT, font_weight="600", font_size="15px"),
+                    rx.text("Grounding in syllabus topics — up to 20 seconds.", color=t.TEXT_MUTED, font_size="13px"),
+                    spacing="3",
+                    align_items="center",
+                ),
+                width="100%",
+                height="360px",
+            ),
+            rx.cond(
+                QuizState.units_error != "",
+                rx.center(
                     rx.vstack(
-                        rx.text(
-                            f"// {ResourceState.subject_code} · SELF ASSESSMENT",
-                            color=ACCENT,
-                            font_family="monospace",
-                            font_size="11px",
-                            letter_spacing="0.2em",
-                        ),
-                        rx.heading(
-                            "Jump to Quiz.",
-                            color="white",
-                            font_family="'Space Grotesk', sans-serif",
-                            font_weight="800",
-                            font_size="44px",
-                        ),
-                        rx.text(
-                            "Select a syllabus unit below to generate a dynamic 5-question test bound to your syllabus.",
-                            color=ACCENT_LIGHT,
-                            font_size="15px",
-                        ),
-                        align_items="start",
+                        rx.icon("triangle-alert", size=26, color=t.ERROR),
+                        rx.text(QuizState.units_error, color=t.ERROR, font_size="14px"),
                         spacing="2",
-                        padding="48px 48px 24px",
+                        align_items="center",
                     ),
-
-                    rx.cond(
-                        QuizState.quiz_loading,
-                        rx.center(
-                            rx.vstack(
-                                rx.text(
-                                    "GENERATING QUIZ QUESTIONS...",
-                                    color=ACCENT,
-                                    font_family="monospace",
-                                    font_size="13px",
-                                    letter_spacing="0.1em",
-                                ),
-                                rx.text(
-                                    "Using syllabus topics to ground questions. This might take up to 20 seconds...",
-                                    color=ACCENT_LIGHT,
-                                    font_size="12px",
-                                ),
-                                rx.spinner(color=ACCENT, size="3"),
-                                spacing="3",
-                                align_items="center",
-                            ),
-                            width="100%",
-                            height="400px",
-                        ),
-                        rx.cond(
-                            QuizState.units_error != "",
-                            rx.center(
-                                rx.vstack(
-                                    rx.icon("alert-triangle", size=24, color="#FF8A8A"),
-                                    rx.text(
-                                        QuizState.units_error,
-                                        color="#FF8A8A",
-                                        font_family="monospace",
-                                        font_size="13px",
-                                    ),
-                                    spacing="2",
-                                    align_items="center",
-                                ),
-                                width="100%",
-                                height="300px",
-                            ),
-                            rx.grid(
-                                rx.foreach(
-                                    QuizState.units,
-                                    unit_card,
-                                ),
-                                columns="2",
-                                spacing="3",
-                                padding="0 48px 48px",
-                                width="100%",
-                            ),
-                        ),
-                    ),
-                    flex="1",
-                    align_items="start",
-                    spacing="0",
                     width="100%",
-                    overflow_y="auto",
+                    height="280px",
+                ),
+                rx.grid(
+                    rx.foreach(QuizState.units, unit_card),
+                    columns=rx.breakpoints(initial="1", sm="2"),
+                    spacing="4",
+                    align_items="stretch",
                 ),
             ),
+        ),
+        width="100%",
+        max_width="820px",
+        padding="40px",
+        overflow_y="auto",
+        flex="1",
+    )
 
-            # Right panel - Grounded AI Sidebar
+
+def quiz_page() -> rx.Component:
+    return rx.box(
+        topbar(breadcrumb="Quiz", active="resources", srn=UserState.srn),
+        rx.hstack(
+            rx.cond(
+                QuizState.has_quiz,
+                rx.cond(QuizState.submitted, quiz_results_view(), quiz_view()),
+                unit_picker(),
+            ),
             ai_sidebar(
                 context_suffix="quiz",
                 welcome_text=(
-                    "I'm Etude AI — strictly grounded in your syllabus. "
-                    "Ask me anything about the quiz or questions. I'll "
-                    "explain any topic step by step."
+                    "I'm Etude AI — grounded in your syllabus. Ask me about any "
+                    "quiz question or topic and I'll explain it step by step."
                 ),
                 suggestions=[
                     (
@@ -552,14 +351,13 @@ def quiz_page() -> rx.Component:
                     ),
                 ],
             ),
-
             width="100%",
             spacing="0",
             align_items="stretch",
-            height="calc(100vh - 72px)", # Height minus topbar
+            height="calc(100vh - 61px)",
         ),
-
-        background=BACKGROUND,
+        background=t.BG_PAGE,
         min_height="100vh",
+        font_family=t.FONT_BODY,
         on_mount=QuizState.load_units,
     )

@@ -4,190 +4,150 @@ import reflex as rx
 
 from etude.components.ai_sidebar import ai_sidebar
 from etude.components.topbar import topbar
+from etude.components import ui
 from etude.state import FlashcardState, ResourceState, UserState
-
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
-PANEL_BG = "#0A2647"
+from etude.styles import theme as t
 
 
 def unit_card(unit: rx.Var) -> rx.Component:
-    """Render one unit card for selection."""
-    return rx.box(
-        rx.vstack(
-            rx.hstack(
-                rx.text(
-                    f"UNIT {unit['unit_number']}",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="11px",
-                    letter_spacing="0.1em",
-                ),
-                rx.spacer(),
-                rx.icon("chevron-right", size=14, color=ACCENT_LIGHT),
-                width="100%",
-            ),
-            rx.heading(
-                unit["unit_title"],
-                color="white",
-                font_family="'Space Grotesk', sans-serif",
-                font_weight="700",
-                font_size="20px",
-                margin_top="10px",
-                line_height="1.2",
-            ),
-            rx.text(
-                f"{unit['topic_count']} topics defined in syllabus",
-                color=ACCENT_LIGHT,
-                font_family="monospace",
-                font_size="12px",
-                margin_top="16px",
-            ),
-            align_items="start",
+    return ui.card(
+        rx.hstack(
+            ui.badge("Unit " + unit["unit_number"].to_string(), tone="accent"),
+            rx.spacer(),
+            rx.icon("chevron-right", size=16, color=t.TEXT_MUTED),
             width="100%",
+            align_items="center",
+        ),
+        rx.text(
+            unit["unit_title"],
+            color=t.TEXT,
+            font_family=t.FONT_DISPLAY,
+            font_weight="700",
+            font_size="18px",
+            margin_top="12px",
+            line_height="1.25",
+        ),
+        rx.text(
+            unit["topic_count"].to_string() + " syllabus topics",
+            color=t.TEXT_MUTED,
+            font_size="13px",
+            margin_top="12px",
         ),
         on_click=FlashcardState.generate_flashcards(unit["unit_number"], unit["unit_title"]),
-        padding="24px",
-        border=f"1px solid {BORDER}",
+        hover=True,
         cursor="pointer",
-        _hover={
-            "background": "rgba(93,138,168,0.06)",
-            "border_color": ACCENT,
-        },
-        height="180px",
+        height="100%",
     )
 
 
 def flashcard_view() -> rx.Component:
-    """Render the active flashcard viewing area."""
     return rx.vstack(
         rx.hstack(
             rx.hstack(
-                rx.icon("chevron-left", size=14, color=ACCENT_LIGHT),
-                rx.text(
-                    "BACK TO UNITS",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="12px",
-                ),
+                rx.icon("chevron-left", size=16, color=t.TEXT_MUTED),
+                rx.text("Back to units", color=t.TEXT_BODY, font_size="13px", font_weight="500"),
                 spacing="1",
                 on_click=FlashcardState.back_to_units,
                 cursor="pointer",
-                _hover={"color": "white"},
+                align_items="center",
+                _hover={"color": t.ACCENT_STRONG},
             ),
             rx.spacer(),
-            rx.text(
-                FlashcardState.progress_label,
-                color=ACCENT,
-                font_family="monospace",
-                font_size="12px",
-                letter_spacing="0.1em",
-            ),
+            ui.badge(FlashcardState.progress_label, tone="accent"),
             width="100%",
-            padding="14px 24px",
-            border_bottom=f"1px solid {BORDER}",
+            padding="14px 32px",
+            border_bottom=f"1px solid {t.BORDER}",
             align_items="center",
+            background=t.BG_CARD,
         ),
-
-        rx.vstack(
-            rx.text(
-                f"CARD {FlashcardState.current_index + 1} OF {FlashcardState.cards.length()}",
-                color=ACCENT,
-                font_family="monospace",
-                font_size="11px",
-                letter_spacing="0.2em",
-                margin_top="30px",
-            ),
-
-            # Flip Card Wrapper
-            rx.center(
+        rx.center(
+            rx.vstack(
+                ui.eyebrow(
+                    "Card " + (FlashcardState.current_index + 1).to_string()
+                    + " of " + FlashcardState.cards.length().to_string()
+                ),
                 rx.box(
                     rx.vstack(
-                        rx.text(
-                            rx.cond(FlashcardState.is_flipped, "REVEAL · BACK", "QUESTION · FRONT"),
-                            color=ACCENT,
-                            font_family="monospace",
-                            font_size="10px",
-                            letter_spacing="0.1em",
+                        ui.badge(
+                            rx.cond(FlashcardState.is_flipped, "Answer", "Question"),
+                            tone=rx.cond(FlashcardState.is_flipped, "success", "accent"),
                         ),
-                        rx.heading(
-                            rx.cond(
-                                FlashcardState.is_flipped,
-                                FlashcardState.current_card["back"],
-                                FlashcardState.current_card["front"],
+                        rx.center(
+                            rx.heading(
+                                rx.cond(
+                                    FlashcardState.is_flipped,
+                                    FlashcardState.current_card["back"],
+                                    FlashcardState.current_card["front"],
+                                ),
+                                color=t.TEXT,
+                                font_family=t.FONT_DISPLAY,
+                                font_weight="700",
+                                font_size="24px",
+                                text_align="center",
+                                line_height="1.4",
                             ),
-                            color="white",
-                            font_family="'Space Grotesk', sans-serif",
-                            font_weight="800",
-                            font_size="24px",
-                            text_align="center",
-                            line_height="1.4",
-                            margin_top="20px",
+                            flex="1",
+                            width="100%",
                         ),
-                        rx.spacer(),
-                        rx.text(
-                            "click card to flip",
-                            color=ACCENT_LIGHT,
-                            font_family="monospace",
-                            font_size="10px",
-                            opacity="0.6",
+                        rx.hstack(
+                            rx.icon("mouse-pointer-click", size=13, color=t.TEXT_MUTED),
+                            rx.text("Click to flip", color=t.TEXT_MUTED, font_size="12px"),
+                            spacing="1",
+                            align_items="center",
                         ),
                         align_items="center",
                         height="100%",
                         width="100%",
+                        spacing="4",
                     ),
                     on_click=FlashcardState.flip_card,
-                    border=f"1px solid {ACCENT}",
-                    background="rgba(10, 38, 71, 0.2)",
-                    padding="48px",
+                    background=t.BG_CARD,
+                    border=f"1px solid {t.BORDER}",
+                    border_radius=t.RADIUS,
+                    box_shadow=t.SHADOW_CARD,
+                    padding="40px",
                     width="100%",
-                    max_width="600px",
+                    max_width="580px",
                     height="320px",
                     cursor="pointer",
-                    transition="transform 0.4s ease",
-                    _hover={
-                        "background": "rgba(10, 38, 71, 0.3)",
-                        "box_shadow": f"0 0 15px {BORDER}",
-                    },
+                    margin_top="20px",
+                    transition="box-shadow .18s ease, transform .18s ease",
+                    _hover={"box_shadow": t.SHADOW_HOVER, "transform": "translateY(-2px)"},
                 ),
-                width="100%",
-                padding_y="40px",
-            ),
-
-            # Card navigation
-            rx.hstack(
                 rx.hstack(
-                    rx.icon("chevron-left", size=14),
-                    rx.text("PREV", font_family="monospace", font_size="12px"),
-                    spacing="1",
-                    on_click=FlashcardState.prev_card,
-                    cursor="pointer",
-                    color=rx.cond(FlashcardState.current_index > 0, ACCENT_LIGHT, "rgba(255,255,255,0.15)"),
-                ),
-
-                rx.spacer(),
-
-                rx.hstack(
-                    rx.text("NEXT", font_family="monospace", font_size="12px"),
-                    rx.icon("chevron-right", size=14),
-                    spacing="1",
-                    on_click=FlashcardState.next_card,
-                    cursor="pointer",
-                    color=rx.cond(
-                        FlashcardState.current_index < FlashcardState.cards.length() - 1,
-                        ACCENT_LIGHT,
-                        "rgba(255,255,255,0.15)"
+                    rx.hstack(
+                        rx.icon("chevron-left", size=16),
+                        rx.text("Prev", font_size="14px", font_weight="500"),
+                        spacing="1",
+                        on_click=FlashcardState.prev_card,
+                        cursor="pointer",
+                        align_items="center",
+                        color=rx.cond(FlashcardState.current_index > 0, t.TEXT_BODY, t.BORDER_STRONG),
                     ),
+                    rx.spacer(),
+                    rx.hstack(
+                        rx.text("Next", font_size="14px", font_weight="600"),
+                        rx.icon("chevron-right", size=16),
+                        spacing="1",
+                        on_click=FlashcardState.next_card,
+                        cursor="pointer",
+                        align_items="center",
+                        color=rx.cond(
+                            FlashcardState.current_index < FlashcardState.cards.length() - 1,
+                            t.ACCENT_STRONG,
+                            t.BORDER_STRONG,
+                        ),
+                    ),
+                    width="100%",
+                    max_width="580px",
+                    margin_top="24px",
                 ),
-                width="100%",
-                max_width="600px",
-                padding_top="20px",
+                align_items="center",
+                spacing="0",
             ),
             width="100%",
-            align_items="center",
-            padding_x="40px",
+            flex="1",
+            padding="48px 40px",
         ),
         flex="1",
         width="100%",
@@ -196,113 +156,70 @@ def flashcard_view() -> rx.Component:
     )
 
 
-def flashcards_page() -> rx.Component:
-    """Render the flashcards page."""
+def unit_picker() -> rx.Component:
     return rx.box(
-        topbar(
-            breadcrumb="flashcards",
-            active="resources",
-            srn=UserState.srn,
+        rx.vstack(
+            ui.eyebrow(ResourceState.subject_code + " · active recall"),
+            ui.heading("Flashcards", size="34px", margin_top="6px"),
+            ui.subtext(
+                "Pick a syllabus unit to generate study flashcards for active recall.",
+                margin_top="8px",
+            ),
+            align_items="start",
+            spacing="0",
+            margin_bottom="28px",
         ),
-
-        rx.hstack(
-            # Left panel - picker or active card viewer
-            rx.cond(
-                FlashcardState.has_cards,
-                flashcard_view(),
+        rx.cond(
+            FlashcardState.cards_loading,
+            rx.center(
                 rx.vstack(
+                    rx.spinner(color=t.ACCENT, size="3"),
+                    rx.text("Generating flashcards…", color=t.TEXT, font_weight="600", font_size="15px"),
+                    rx.text("Parsing key concepts — up to 20 seconds.", color=t.TEXT_MUTED, font_size="13px"),
+                    spacing="3",
+                    align_items="center",
+                ),
+                width="100%",
+                height="360px",
+            ),
+            rx.cond(
+                FlashcardState.units_error != "",
+                rx.center(
                     rx.vstack(
-                        rx.text(
-                            f"// {ResourceState.subject_code} · ACTIVE RECALL",
-                            color=ACCENT,
-                            font_family="monospace",
-                            font_size="11px",
-                            letter_spacing="0.2em",
-                        ),
-                        rx.heading(
-                            "Flashcards.",
-                            color="white",
-                            font_family="'Space Grotesk', sans-serif",
-                            font_weight="800",
-                            font_size="44px",
-                        ),
-                        rx.text(
-                            "Select a syllabus unit below to generate study flashcards to test your knowledge.",
-                            color=ACCENT_LIGHT,
-                            font_size="15px",
-                        ),
-                        align_items="start",
+                        rx.icon("triangle-alert", size=26, color=t.ERROR),
+                        rx.text(FlashcardState.units_error, color=t.ERROR, font_size="14px"),
                         spacing="2",
-                        padding="48px 48px 24px",
+                        align_items="center",
                     ),
-
-                    rx.cond(
-                        FlashcardState.cards_loading,
-                        rx.center(
-                            rx.vstack(
-                                rx.text(
-                                    "GENERATING FLASHCARDS...",
-                                    color=ACCENT,
-                                    font_family="monospace",
-                                    font_size="13px",
-                                    letter_spacing="0.1em",
-                                ),
-                                rx.text(
-                                    "Parsing key concepts from syllabus. This might take up to 20 seconds...",
-                                    color=ACCENT_LIGHT,
-                                    font_size="12px",
-                                ),
-                                rx.spinner(color=ACCENT, size="3"),
-                                spacing="3",
-                                align_items="center",
-                            ),
-                            width="100%",
-                            height="400px",
-                        ),
-                        rx.cond(
-                            FlashcardState.units_error != "",
-                            rx.center(
-                                rx.vstack(
-                                    rx.icon("alert-triangle", size=24, color="#FF8A8A"),
-                                    rx.text(
-                                        FlashcardState.units_error,
-                                        color="#FF8A8A",
-                                        font_family="monospace",
-                                        font_size="13px",
-                                    ),
-                                    spacing="2",
-                                    align_items="center",
-                                ),
-                                width="100%",
-                                height="300px",
-                            ),
-                            rx.grid(
-                                rx.foreach(
-                                    FlashcardState.units,
-                                    unit_card,
-                                ),
-                                columns="2",
-                                spacing="3",
-                                padding="0 48px 48px",
-                                width="100%",
-                            ),
-                        ),
-                    ),
-                    flex="1",
-                    align_items="start",
-                    spacing="0",
                     width="100%",
-                    overflow_y="auto",
+                    height="280px",
+                ),
+                rx.grid(
+                    rx.foreach(FlashcardState.units, unit_card),
+                    columns=rx.breakpoints(initial="1", sm="2"),
+                    spacing="4",
+                    align_items="stretch",
                 ),
             ),
+        ),
+        width="100%",
+        max_width="820px",
+        padding="40px",
+        overflow_y="auto",
+        flex="1",
+    )
 
-            # Right panel - Grounded AI Sidebar
+
+def flashcards_page() -> rx.Component:
+    return rx.box(
+        topbar(breadcrumb="Flashcards", active="resources", srn=UserState.srn),
+        rx.hstack(
+            rx.cond(FlashcardState.has_cards, flashcard_view(), unit_picker()),
             ai_sidebar(
                 context_suffix="flashcards",
                 welcome_text=(
-                    "I'm Etude AI — strictly grounded in your syllabus. "
-                    "Ask me anything about the flashcard terms or concepts. "
-                    "I'll explain any topic step by step."
+                    "I'm Etude AI — grounded in your syllabus. Ask me about any "
+                    "flashcard term or concept and I'll explain it step by step."
                 ),
                 suggestions=[
                     (
@@ -324,14 +241,13 @@ def flashcards_page() -> rx.Component:
                     ),
                 ],
             ),
-
             width="100%",
             spacing="0",
             align_items="stretch",
-            height="calc(100vh - 72px)", # Height minus topbar
+            height="calc(100vh - 61px)",
         ),
-
-        background=BACKGROUND,
+        background=t.BG_PAGE,
         min_height="100vh",
+        font_family=t.FONT_BODY,
         on_mount=FlashcardState.load_units,
     )

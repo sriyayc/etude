@@ -1,371 +1,192 @@
 import reflex as rx
 
-from etude.components.button import primary_button
-from etude.components.input import text_input
+from etude.components import ui
 from etude.state import UserState
+from etude.styles import theme as t
 
 
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
-
-
-def stat_card(title: str, value: str):
-    return rx.box(
-        rx.text(
-            title,
-            font_size="9px",
-            text_transform="uppercase",
-            letter_spacing="0.25em",
-            color=ACCENT,
-            font_family="monospace",
+def feature_row(icon: str, text: str) -> rx.Component:
+    return rx.hstack(
+        rx.box(
+            rx.icon(icon, size=16, color="white"),
+            background="rgba(255,255,255,0.16)",
+            border_radius=t.RADIUS_SM,
+            padding="8px",
+            display="flex",
         ),
-        rx.text(
-            value,
-            color="white",
-            font_size="12px",
-            margin_top="6px",
-            font_family="monospace",
-        ),
-        bg=BACKGROUND,
-        padding="14px",
-        border=f"1px solid {BORDER}",
+        rx.text(text, color="rgba(255,255,255,0.92)", font_size="15px", font_weight="500"),
+        spacing="3",
+        align_items="center",
     )
 
 
-def left_panel():
-
+def brand_panel() -> rx.Component:
     return rx.box(
-
-        rx.image(
-            src="https://images.pexels.com/photos/8452381/pexels-photo-8452381.jpeg",
-            position="absolute",
-            inset="0",
-            width="100%",
-            height="100%",
-            object_fit="cover",
-            opacity="0.65",
-        ),
-
-        rx.box(
-            position="absolute",
-            inset="0",
-            background="""
-            linear-gradient(
-                135deg,
-                rgba(0,0,0,.95),
-                rgba(0,33,71,.82),
-                rgba(31,58,61,.65)
-            )
-            """,
-        ),
-
-        rx.box(
-            position="absolute",
-            inset="0",
-            background_image="url('/grid.svg')",
-            background_repeat="repeat",
-            opacity="0.18",
-        ),
-
         rx.vstack(
-
-            rx.vstack(
-                rx.image(
-                    src="/logo.png",
-                    height="52px",
-                    width="auto",
-                ),
-
+            rx.hstack(
+                rx.image(src="/logo.png", height="34px", width="auto"),
                 rx.text(
-                    "PESU · syllabus-bound AI",
-                    color=ACCENT,
-                    font_size="10px",
-                    letter_spacing="0.3em",
-                    text_transform="uppercase",
-                    margin_top="-6px",
-                ),
-
-                spacing="1",
-                align_items="start",
-            ),
-
-            rx.spacer(),
-
-            rx.vstack(
-
-                rx.text(
-                    "// a study OS for PESU",
-                    color=ACCENT,
-                    font_size="10px",
-                    letter_spacing="0.3em",
-                    text_transform="uppercase",
-                    font_family="monospace",
-                ),
-
-                rx.heading(
-                    rx.fragment(
-                        "stop switching between ",
-                        rx.text.span(
-                            "slides",
-                            color=ACCENT,
-                        ),
-                        " & ",
-                        rx.text.span(
-                            "textbooks",
-                            color=ACCENT_LIGHT,
-                        ),
-                        ".",
-                    ),
+                    "etude",
                     color="white",
-                    font_size="60px",
-                    font_weight="800",
-                    line_height="0.95",
-                    max_width="620px",
-
+                    font_family=t.FONT_DISPLAY,
+                    font_weight="700",
+                    font_size="24px",
                 ),
-
+                spacing="2",
+                align_items="center",
+            ),
+            rx.spacer(),
+            rx.vstack(
+                rx.heading(
+                    "Your whole syllabus, in one place.",
+                    color="white",
+                    font_family=t.FONT_DISPLAY,
+                    font_weight="700",
+                    font_size="40px",
+                    line_height="1.15",
+                    max_width="460px",
+                ),
                 rx.text(
-                    "Etude compiles your unit's slides and textbook into one queryable surface. "
-                    "The AI answers only from your syllabus while citing every page.",
-                    color=ACCENT_LIGHT,
+                    "Etude brings your slides, textbook and an AI tutor together — "
+                    "and the tutor answers only from your syllabus, citing every source.",
+                    color="rgba(255,255,255,0.82)",
                     font_size="16px",
-                    max_width="620px",
-                    line_height="1.5",
+                    line_height="1.6",
+                    max_width="460px",
+                    margin_top="4px",
                 ),
-
-                rx.grid(
-
-                    stat_card(
-                        "RAG",
-                        "syllabus-bound",
-                    ),
-
-                    stat_card(
-                        "CITATIONS",
-                        "always-on",
-                    ),
-
-                    stat_card(
-                        "QUIZZES",
-                        "auto-generated",
-                    ),
-
-                    stat_card(
-                        "RANK",
-                        "leaderboard",
-                    ),
-
-                    columns="2",
-                    spacing="1",
-                    width="360px",
-                    margin_top="12px",
+                rx.vstack(
+                    feature_row("book-open", "Slides & textbook, unified per unit"),
+                    feature_row("sparkles", "Syllabus-grounded AI tutor with citations"),
+                    feature_row("clipboard-check", "Auto-generated quizzes & flashcards"),
+                    feature_row("trophy", "Class leaderboard to keep you going"),
+                    spacing="4",
+                    align_items="start",
+                    margin_top="28px",
                 ),
-
                 spacing="3",
                 align_items="start",
             ),
-
+            rx.spacer(),
             rx.text(
-                "© 2026 ETUDE · Built for PES University",
-                color=ACCENT,
-                font_size="10px",
-                font_family="monospace",
-                margin_top="14px",
+                "Built for PES University",
+                color="rgba(255,255,255,0.7)",
+                font_size="13px",
             ),
-
-            width="100%",
-            min_height="100%",
-            padding="24px 48px 32px",
             align_items="start",
-            # FIX 1: without this, the absolute-positioned image/gradient/grid
-            # boxes above paint ON TOP of this text (CSS paints positioned
-            # elements after static ones, regardless of source order).
-            position="relative",
-            z_index="1",
-            overflow_y="auto",
+            height="100%",
+            padding="48px",
+            spacing="0",
         ),
-
-        position="relative",
         width="50%",
         height="100vh",
+        background=f"linear-gradient(150deg, {t.ACCENT_STRONG} 0%, {t.ACCENT} 55%, #6E9BB8 100%)",
         display=["none", "none", "flex", "flex"],
-        overflow="hidden",
     )
-def right_panel():
+
+
+def field(label: str, hint: str | None, **input_props) -> rx.Component:
+    children = [
+        rx.text(label, color=t.TEXT, font_size="13px", font_weight="600"),
+        ui.text_input(**input_props),
+    ]
+    if hint:
+        children.append(rx.text(hint, color=t.TEXT_MUTED, font_size="12px"))
+    return rx.vstack(*children, spacing="2", width="100%", align_items="start")
+
+
+def form_panel() -> rx.Component:
     return rx.center(
-
         rx.box(
-
+            ui.eyebrow("PESU sign in"),
+            ui.heading("Welcome back", size="34px", margin_top="10px", margin_bottom="6px"),
             rx.text(
-                "// PESU Academy Sign In",
-                color=ACCENT,
-                font_family="monospace",
-                font_size="10px",
-                letter_spacing="0.3em",
-                text_transform="uppercase",
-                margin_bottom="10px",
+                "Sign in with your PES SRN to continue.",
+                color=t.TEXT_BODY,
+                font_size="15px",
+                margin_bottom="30px",
             ),
-
-            rx.heading(
-                # FIX 2: was hardcoded "Sign in to ETUDE." — lowercase to match brand
-                "Sign in to etude.",
-                color="white",
-                font_size="42px",
-                margin_bottom="36px",
-            ),
-
             rx.vstack(
-
-                rx.text(
-                    "SRN",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="10px",
-                    letter_spacing="0.2em",
-                    text_transform="uppercase",
-                    align_self="start",
-                ),
-
-                text_input(
+                field(
+                    "SRN", "Format: PES2UG24CS510",
                     placeholder="PES2UG24CS510",
                     value=UserState.login_srn,
                     on_change=UserState.set_login_srn,
                 ),
-
-                rx.text(
-                    "Format: PES2UG24CS510",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="10px",
-                    align_self="start",
-                ),
-
-                spacing="2",
-                width="100%",
-                align_items="start",
-            ),
-
-            rx.box(height="20px"),
-
-            rx.vstack(
-
-                rx.text(
-                    "Password",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="10px",
-                    letter_spacing="0.2em",
-                    text_transform="uppercase",
-                    align_self="start",
-                ),
-
-                text_input(
+                field(
+                    "Password", None,
                     placeholder="••••••••",
-                    input_type="password",
+                    type="password",
                     value=UserState.login_password,
                     on_change=UserState.set_login_password,
                 ),
-
-                spacing="2",
-                width="100%",
-                align_items="start",
-            ),
-
-            rx.cond(
-                UserState.login_error != "",
-                rx.text(
-                    UserState.login_error,
-                    color="#EF4444",
-                    font_family="monospace",
-                    font_size="12px",
-                    margin_top="12px",
+                rx.cond(
+                    UserState.login_error != "",
+                    rx.hstack(
+                        rx.icon("circle-alert", size=15, color=t.ERROR),
+                        rx.text(UserState.login_error, color=t.ERROR, font_size="13px"),
+                        spacing="2",
+                        align_items="center",
+                        background=t.ERROR_SOFT,
+                        border_radius=t.RADIUS_SM,
+                        padding="10px 12px",
+                        width="100%",
+                    ),
+                    rx.fragment(),
                 ),
+                ui.primary_button(
+                    "Sign in",
+                    icon="arrow-right",
+                    on_click=UserState.handle_login,
+                    width="100%",
+                    padding="13px",
+                ),
+                spacing="4",
+                width="100%",
             ),
-
-            rx.box(height="28px"),
-
-            # FIX 3: was primary_button("Sign In →") — primary_button already
-            # appends its own arrow-right icon, so this caused a double arrow.
-            primary_button(
-                "Sign In",
-                on_click=UserState.handle_login,
-            ),
-
             rx.hstack(
-
+                rx.text("New here?", color=t.TEXT_MUTED, font_size="14px"),
                 rx.link(
-                    "→ Create account",
+                    "Create an account",
                     href="/signup",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="11px",
+                    color=t.ACCENT_STRONG,
+                    font_size="14px",
+                    font_weight="600",
                 ),
-
-                rx.spacer(),
-
-                # FIX 5: added icon + lowercased to match reference ("verified via PESU")
-                rx.hstack(
-                    rx.icon("shield", size=13, color=ACCENT),
-                    rx.text(
-                        "verified via PESU",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="10px",
-                    ),
-                    spacing="1",
-                    align_items="center",
-                ),
-
+                spacing="1",
+                margin_top="24px",
+                justify="center",
                 width="100%",
-                margin_top="20px",
             ),
-
-            rx.divider(
-                margin_y="34px",
-                border_color=BORDER,
-            ),
-
-            # FIX 6: added shield icon + bolded clause, restored second line
             rx.hstack(
-                rx.icon("shield-check", size=14, color=ACCENT_LIGHT, margin_top="2px"),
+                rx.icon("shield-check", size=15, color=t.TEXT_MUTED),
                 rx.text(
-                    "Etude only accepts PESU SRNs. ",
-                    rx.text.span(
-                        "Your credentials are never used to access PESU Academy",
-                        font_weight="700",
-                        color="white",
-                    ),
-                    " — they're a local identity for ranking & sync.",
-                    color=ACCENT_LIGHT,
-                    font_family="monospace",
-                    font_size="10px",
-                    line_height="1.8",
+                    "Etude only accepts PESU SRNs. Your password is a local identity "
+                    "for ranking and sync — it is never used to access PESU Academy.",
+                    color=t.TEXT_MUTED,
+                    font_size="12px",
+                    line_height="1.6",
                 ),
                 align_items="start",
                 spacing="2",
+                margin_top="28px",
             ),
-
-            width="520px",
-
+            width="100%",
+            max_width="420px",
+            padding="40px",
         ),
-
-        width="50%",
+        width=["100%", "100%", "50%", "50%"],
         height="100vh",
-        bg="#000000",
-        border_left="1px solid rgba(255,255,255,0.06)",
+        background=t.BG_PAGE,
     )
+
+
 def login_page():
-
     return rx.hstack(
-
-        left_panel(),
-
-        right_panel(),
-
+        brand_panel(),
+        form_panel(),
         width="100%",
         height="100vh",
         spacing="0",
-        bg="#000000",
+        font_family=t.FONT_BODY,
     )

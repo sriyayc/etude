@@ -3,73 +3,55 @@
 import reflex as rx
 
 from etude.components.topbar import topbar
+from etude.components import ui
 from etude.state import UserState
-
-ACCENT = "#5D8AA8"
-ACCENT_LIGHT = "#7393B3"
-BORDER = "#1F3A3D"
-BACKGROUND = "#000000"
+from etude.styles import theme as t
 
 SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8]
-
-# NOTE: "compiled notes" and "slides ingested" aren't per-user schema
-# fields yet (they'd come from a documents/ingestion pipeline that
-# doesn't exist in your current tables) — still static placeholders.
-STATIC_STATS = [
-    ("COMPILED NOTES", "312", "pages indexed"),
-    ("SLIDES INGESTED", "1,824", "across 32 subjects"),
-]
 
 
 def semester_tile(number: int):
     return rx.link(
-        rx.box(
+        ui.card(
             rx.hstack(
-                rx.text(
-                    f"SEM {number:02d}",
-                    color=ACCENT,
-                    font_family="monospace",
-                    font_size="11px",
-                    letter_spacing="0.15em",
-                    class_name="tile-label",
-                ),
+                ui.badge(f"Semester {number}", tone="accent"),
                 rx.spacer(),
-                rx.icon("arrow-up-right", size=16, color=ACCENT_LIGHT),
+                rx.box(
+                    rx.icon("arrow-up-right", size=18, color=t.ACCENT_STRONG),
+                    class_name="tile-arrow",
+                    opacity="0.55",
+                    transition="opacity .18s ease, transform .18s ease",
+                ),
                 width="100%",
+                align_items="center",
             ),
             rx.text(
                 str(number),
-                color="#12262b",
-                font_family="'Space Grotesk', sans-serif",
-                font_weight="800",
-                font_size="120px",
+                color=t.ACCENT,
+                font_family=t.FONT_DISPLAY,
+                font_weight="700",
+                font_size="72px",
                 line_height="1",
-                margin_top="30px",
+                margin_top="18px",
                 class_name="tile-number",
+                transition="color .18s ease",
             ),
             rx.text(
-                f"→ SEMESTER {number}",
-                color=ACCENT_LIGHT,
-                font_family="monospace",
-                font_size="12px",
-                class_name="tile-reveal",
-                opacity="0",
-                position="absolute",
-                bottom="24px",
-                left="24px",
-                transition="opacity .2s ease",
+                "View subjects",
+                color=t.TEXT_MUTED,
+                font_size="13px",
+                font_weight="500",
+                margin_top="10px",
             ),
-            padding="24px",
-            height="220px",
-            border=f"1px solid {BORDER}",
-            cursor="pointer",
-            overflow="hidden",
-            position="relative",
-            transition="background .2s ease",
+            hover=True,
+            height="200px",
+            padding="22px",
             _hover={
-                "bg": "#0A2647",
-                "& .tile-number": {"color": "#1E4A6B"},
-                "& .tile-reveal": {"opacity": "1"},
+                "box_shadow": t.SHADOW_HOVER,
+                "transform": "translateY(-3px)",
+                "border_color": t.ACCENT,
+                "& .tile-number": {"color": t.ACCENT_STRONG},
+                "& .tile-arrow": {"opacity": "1", "transform": "translate(2px,-2px)"},
             },
         ),
         href=f"/resources/{number}",
@@ -78,149 +60,77 @@ def semester_tile(number: int):
     )
 
 
-def stat_block(label: str, value: str, sub: str):
-    return rx.vstack(
-        rx.text(
-            label,
-            color=ACCENT,
-            font_family="monospace",
-            font_size="11px",
-            letter_spacing="0.15em",
+def stat_tile(icon: str, label: str, value, sub) -> rx.Component:
+    return ui.card(
+        rx.hstack(
+            rx.box(
+                rx.icon(icon, size=20, color=t.ACCENT_STRONG),
+                background=t.ACCENT_SOFT,
+                border_radius=t.RADIUS_SM,
+                padding="10px",
+                display="flex",
+            ),
+            rx.vstack(
+                rx.text(label, color=t.TEXT_MUTED, font_size="13px", font_weight="500"),
+                rx.text(
+                    value,
+                    color=t.TEXT,
+                    font_family=t.FONT_DISPLAY,
+                    font_weight="700",
+                    font_size="26px",
+                    line_height="1.1",
+                ),
+                rx.text(sub, color=t.TEXT_MUTED, font_size="12px"),
+                align_items="start",
+                spacing="0",
+            ),
+            spacing="3",
+            align_items="center",
         ),
-        rx.text(
-            value,
-            color="white",
-            font_family="'Space Grotesk', sans-serif",
-            font_weight="800",
-            font_size="34px",
-        ),
-        rx.text(
-            sub,
-            color=ACCENT_LIGHT,
-            font_family="monospace",
-            font_size="12px",
-        ),
-        align_items="start",
-        spacing="1",
-        padding="0 32px",
-        border_left=f"1px solid {BORDER}",
-        height="100%",
-        justify_content="center",
+        padding="18px 20px",
     )
 
 
 def dashboard_page():
-    return rx.box(
-
-        topbar(breadcrumb="resources", active="resources", srn=UserState.srn),
-
-        rx.box(
-
+    return ui.page(
+        topbar(breadcrumb="Resources", active="resources", srn=UserState.srn),
+        ui.container(
             rx.hstack(
                 rx.vstack(
-                    rx.text(
-                        "// HELLO, BATCH 24",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="11px",
-                        letter_spacing="0.2em",
-                    ),
-                    rx.heading(
-                        "Choose a semester.",
-                        color="white",
-                        font_family="'Space Grotesk', sans-serif",
-                        font_weight="800",
-                        font_size="52px",
-                    ),
-                    rx.text(
-                        "Eight semesters. Compiled slides + textbook + AI tutor in one surface.",
-                        color=ACCENT_LIGHT,
-                        font_size="16px",
+                    ui.eyebrow("Welcome back"),
+                    ui.heading("Choose a semester", size="42px", margin_top="8px"),
+                    ui.subtext(
+                        "Slides, textbook and an AI tutor for every unit — all in one place.",
                         margin_top="8px",
                     ),
                     align_items="start",
-                    spacing="2",
+                    spacing="0",
                 ),
-
                 rx.spacer(),
-
                 rx.vstack(
-                    rx.text(
-                        UserState.srn,
-                        color="white",
-                        font_family="monospace",
-                        font_size="13px",
-                    ),
-                    rx.text(
-                        "8 units · syllabus-bound",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
+                    ui.badge(UserState.srn, tone="muted", font_family=t.FONT_MONO),
                     align_items="end",
                     spacing="1",
+                    display=["none", "none", "flex"],
                 ),
-
                 width="100%",
-                align_items="start",
-                padding="60px 48px 40px",
+                align_items="center",
+                margin_bottom="28px",
             ),
 
             rx.grid(
                 *[semester_tile(n) for n in SEMESTERS],
-                columns="4",
-                spacing="0",
-                border_top=f"1px solid {BORDER}",
-                border_left=f"1px solid {BORDER}",
-                style={
-                    "& > a": {
-                        "border-right": f"1px solid {BORDER}",
-                        "border-bottom": f"1px solid {BORDER}",
-                    }
-                },
-                padding="0 48px",
+                columns=rx.breakpoints(initial="2", lg="4"),
+                spacing="4",
             ),
 
-            rx.hstack(
-                *[stat_block(*s) for s in STATIC_STATS],
-                rx.vstack(
-                    rx.text(
-                        "YOUR RANK",
-                        color=ACCENT,
-                        font_family="monospace",
-                        font_size="11px",
-                        letter_spacing="0.15em",
-                    ),
-                    rx.text(
-                        f"#{UserState.rank}",
-                        color="white",
-                        font_family="'Space Grotesk', sans-serif",
-                        font_weight="800",
-                        font_size="34px",
-                    ),
-                    rx.text(
-                        f"{UserState.points} pts · {UserState.streak} day streak",
-                        color=ACCENT_LIGHT,
-                        font_family="monospace",
-                        font_size="12px",
-                    ),
-                    align_items="start",
-                    spacing="1",
-                    padding="0 32px",
-                    border_left=f"1px solid {BORDER}",
-                    height="100%",
-                    justify_content="center",
-                ),
-                width="100%",
-                padding="40px 48px 60px",
-                height="100px",
-                margin_top="20px",
+            rx.grid(
+                stat_tile("trophy", "Your rank", f"#{UserState.rank}", "class leaderboard"),
+                stat_tile("sparkles", "Points", UserState.points, "keep it up"),
+                stat_tile("flame", "Streak", f"{UserState.streak} days", "current streak"),
+                columns=rx.breakpoints(initial="1", lg="3"),
+                spacing="4",
+                margin_top="28px",
             ),
-
-            max_width="1600px",
-            margin="0 auto",
         ),
-
-        bg=BACKGROUND,
-        min_height="100vh",
     )
