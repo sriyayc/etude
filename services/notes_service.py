@@ -2,6 +2,7 @@
 
 from features.notes import generate_notes as _generate_notes
 from db import generated_content_repo
+from services import grounding
 
 
 def get_revision_notes(
@@ -9,6 +10,7 @@ def get_revision_notes(
     subject: str,
     semester: int,
     unit_number: int,
+    document_id: str | None = None,
 ) -> dict:
     """
     Get the revision notes for a unit -- generated once and cached, not
@@ -22,10 +24,12 @@ def get_revision_notes(
             "sources": cached.get("sources") or [],
         }
 
+    chunks = grounding.deck_chunks(document_id, source_file=topic) if document_id else None
     result = _generate_notes(
         topic=topic,
         subject=subject,
         semester=semester,
+        chunks=chunks or None,
     )
 
     if result.get("success"):

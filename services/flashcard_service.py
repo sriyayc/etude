@@ -2,6 +2,7 @@
 
 from features.flashcards import generate_flashcards as _generate_flashcards
 from db import generated_content_repo
+from services import grounding
 
 
 def get_flashcards(
@@ -10,6 +11,7 @@ def get_flashcards(
     semester: int,
     unit_number: int,
     num_cards: int = 8,
+    document_id: str | None = None,
 ) -> dict:
     """
     Get the flashcard set for a unit -- generated once and cached, not
@@ -23,11 +25,13 @@ def get_flashcards(
             "sources": cached.get("sources") or [],
         }
 
+    chunks = grounding.deck_chunks(document_id, source_file=topic) if document_id else None
     result = _generate_flashcards(
         topic=topic,
         subject=subject,
         semester=semester,
         num_cards=num_cards,
+        chunks=chunks or None,
     )
 
     if result.get("success"):

@@ -10,12 +10,16 @@ logger = logging.getLogger(__name__)
 def generate_notes(
     topic: str,
     subject: str,
-    semester: int
+    semester: int,
+    chunks: list | None = None,
 ) -> dict:
     """
     Generate revision/study notes on a topic using retrieved reference materials.
     """
-    chunks = retrieve(query=topic, subject=subject, semester=semester)
+    # A caller can pass deck-specific grounding (the unit's own slides). Only
+    # fall back to subject-wide semantic retrieval when it doesn't.
+    if not chunks:
+        chunks = retrieve(query=topic, subject=subject, semester=semester)
     
     if not chunks:
         return {

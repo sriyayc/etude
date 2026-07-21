@@ -12,12 +12,16 @@ def generate_flashcards(
     topic: str,
     subject: str,
     semester: int,
-    num_cards: int = 8
+    num_cards: int = 8,
+    chunks: list | None = None,
 ) -> dict:
     """
     Generate study flashcards on a topic using retrieved reference materials.
     """
-    chunks = retrieve(query=topic, subject=subject, semester=semester)
+    # A caller can pass deck-specific grounding (the unit's own slides). Only
+    # fall back to subject-wide semantic retrieval when it doesn't.
+    if not chunks:
+        chunks = retrieve(query=topic, subject=subject, semester=semester)
     
     if not chunks:
         return {

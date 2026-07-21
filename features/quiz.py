@@ -12,12 +12,16 @@ def generate_quiz(
     topic: str,
     subject: str,
     semester: int,
-    num_questions: int = 5
+    num_questions: int = 5,
+    chunks: list | None = None,
 ) -> dict:
     """
     Generate a multiple-choice quiz on a topic using retrieved reference materials.
     """
-    chunks = retrieve(query=topic, subject=subject, semester=semester)
+    # A caller can pass deck-specific grounding (the unit's own slides). Only
+    # fall back to subject-wide semantic retrieval when it doesn't.
+    if not chunks:
+        chunks = retrieve(query=topic, subject=subject, semester=semester)
     
     if not chunks:
         return {

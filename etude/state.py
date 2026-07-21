@@ -64,48 +64,78 @@ async def bind_session(state) -> None:
 
 
 def _load_units(subject: str, semester: int) -> list[dict]:
-    """Group syllabus_topics rows into units for topic pickers.
+    """Build the unit list for the quiz / flashcard / notes pickers.
 
-    Shared by QuizState/FlashcardState/NotesState so "pick a unit, then
-    generate" only has one implementation.
+    Each uploaded slide deck *is* a unit -- students upload one PDF per unit.
+    Deriving units from the decks works for every subject, unlike the old
+    syllabus_topics approach which only produced units for decks whose slides
+    happened to contain a "Module content:" overview slide (so most subjects
+    showed "No syllabus units found" and could generate nothing).
+
+    Each unit carries its deck's ``document_id`` so generation can ground on
+    that unit's own slides. Falls back to syllabus_topics only for subjects
+    that have a syllabus doc but no slide decks.
     """
+    import re
 
     try:
-        rows = syllabus_repo.list_current_topics(
-            subject=subject, semester=semester
-        )
+        docs = documents_repo.list_documents(subject=subject, semester=semester)
+    except Exception:
+        docs = []
+
+    decks = [d for d in docs if d.get("document_type") == "slides" and d.get("id")]
+    if decks:
+        decks.sort(key=lambda d: _deck_sort_key(d.get("title") or ""))
+        result: list[dict] = []
+        used_numbers: set[int] = set()
+        for index, deck in enumerate(decks, start=1):
+            title = deck.get("title") or f"Unit {index}"
+            match = re.search(r"(\d+)", title)
+            number = int(match.group(1)) if match else index
+            # Two decks parsing to the same number would collide on the
+            # generated-content cache key -- keep them distinct.
+            while number in used_numbers:
+                number += 1
+            used_numbers.add(number)
+            doc_id = str(deck.get("id"))
+            try:
+                slide_n = len(subjects_repo.list_slides(document_id=doc_id))
+            except Exception:
+                slide_n = 0
+            result.append(
+                {
+                    "unit_number": number,
+                    "unit_title": title,
+                    "document_id": doc_id,
+                    "topic_count": slide_n,
+                }
+            )
+        return result
+
+    # ---- legacy fallback: syllabus_topics-based units ----
+    try:
+        rows = syllabus_repo.list_current_topics(subject=subject, semester=semester)
     except Exception:
         return []
 
     units: dict[int, dict] = {}
-
     for row in rows:
         unit_number = row.get("unit_number") or 0
-
         if unit_number not in units:
             units[unit_number] = {
                 "unit_number": unit_number,
-                "unit_title": (
-                    row.get("unit_title") or f"Unit {unit_number}"
-                ),
+                "unit_title": row.get("unit_title") or f"Unit {unit_number}",
+                "document_id": "",
                 "topics": [],
             }
-
         topic = row.get("topic")
-
         if topic:
             units[unit_number]["topics"].append(topic)
 
-    result = sorted(units.values(), key=lambda u: u["unit_number"])
-
-    # Precompute topic_count server-side: indexing a generically-typed
-    # dict Var client-side (unit["topics"].length()) produces an `Any`
-    # type Reflex can't call .length() on -- only .foreach()-able/typed
-    # Vars support that. Simplest fix is to never need it client-side.
-    for unit in result:
+    legacy = sorted(units.values(), key=lambda u: u["unit_number"])
+    for unit in legacy:
         unit["topic_count"] = len(unit["topics"])
-
-    return result
+    return legacy
 
 
 class ResourceState(rx.State):
@@ -274,7 +304,7 @@ class ResourceState(rx.State):
             semester_number = 1
 
         try:
-            subject = subjects_repo.get_subject(
+            subject = subjects_repo.get_subject_any(
                 semester=semester_number,
                 slug=str(self.subject_slug),
             )
@@ -344,7 +374,7 @@ class ResourceState(rx.State):
             semester_number = 1
 
         try:
-            subject = subjects_repo.get_subject(
+            subject = subjects_repo.get_subject_any(
                 semester=semester_number,
                 slug=str(self.subject_slug),
             )
@@ -583,6 +613,7 @@ class _QuizQuestion(TypedDict):
 class _SyllabusUnit(TypedDict):
     unit_number: int
     unit_title: str
+    document_id: str
     topics: list[str]
     topic_count: int
 
@@ -667,7 +698,7 @@ class QuizState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    async def generate_quiz(self, unit_number: int, unit_title: str):
+    async def generate_quiz(self, unit_number: int, unit_title: str, document_id: str = ""):
         await bind_session(self)
         self.quiz_error = ""
         self.quiz_loading = True
@@ -689,6 +720,7 @@ class QuizState(rx.State):
                 subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
+                document_id=document_id or None,
             )
         except Exception as exc:
             self.quiz_loading = False
@@ -812,7 +844,7 @@ class FlashcardState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    async def generate_flashcards(self, unit_number: int, unit_title: str):
+    async def generate_flashcards(self, unit_number: int, unit_title: str, document_id: str = ""):
         await bind_session(self)
         self.cards_error = ""
         self.cards_loading = True
@@ -832,6 +864,7 @@ class FlashcardState(rx.State):
                 subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
+                document_id=document_id or None,
             )
         except Exception as exc:
             self.cards_loading = False
@@ -906,7 +939,7 @@ class NotesState(rx.State):
             self.units_error = "No syllabus units found for this subject yet."
 
     @rx.event
-    async def generate_notes(self, unit_number: int, unit_title: str):
+    async def generate_notes(self, unit_number: int, unit_title: str, document_id: str = ""):
         await bind_session(self)
         self.notes_error = ""
         self.notes_loading = True
@@ -924,6 +957,7 @@ class NotesState(rx.State):
                 subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
+                document_id=document_id or None,
             )
         except Exception as exc:
             self.notes_loading = False
@@ -1415,14 +1449,13 @@ class UserState(rx.State):
             self.upload_error = "Choose at least one file."
             return
 
-        # A batch titles each deck from its own filename, so the Title box is
-        # only needed for a single upload.
-        if len(files) == 1 and not self.upload_title:
-            self.upload_error = "Give the document a title."
-            return
-
         slug = subjects_repo.slugify(self.upload_subject)
         total = len(files)
+        # The Title box is a pure override now -- always optional. It used to
+        # be required for single uploads, but since it auto-clears after each
+        # success, a follow-up single upload hit "Give the document a title"
+        # and silently refused (looked like the upload just didn't fire).
+        title_override = self.upload_title.strip()
         self.upload_loading = True
         self.upload_total_count = total
         yield
@@ -1430,13 +1463,13 @@ class UserState(rx.State):
         try:
             for index, file in enumerate(files, start=1):
                 label = file.filename or "file " + str(index)
-                # Each PDF becomes its own deck tab, so a batch upload must
-                # not stamp every file with the same title -- fall back to the
-                # filename (e.g. "Unit 3.pdf" -> "Unit 3") when uploading many.
-                if total > 1:
-                    deck_title = (file.filename or label).rsplit(".", 1)[0].strip()
+                # Each PDF becomes its own deck tab titled from its filename
+                # (e.g. "Unit 3.pdf" -> "Unit 3"). A single upload may override
+                # that with whatever's in the Title box.
+                if total == 1 and title_override:
+                    deck_title = title_override
                 else:
-                    deck_title = self.upload_title
+                    deck_title = (file.filename or label).rsplit(".", 1)[0].strip()
                 counter = " (" + str(index) + "/" + str(total) + ")"
 
                 self.upload_status = "Reading " + label + counter

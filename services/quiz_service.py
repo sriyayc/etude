@@ -4,6 +4,7 @@ from services.auth_service import get_current_user
 from features.quiz import generate_quiz as _generate_quiz
 from db.quiz_attempts_repo import create_attempt, get_user_attempts
 from db import generated_content_repo
+from services import grounding
 
 
 def get_quiz(
@@ -12,6 +13,7 @@ def get_quiz(
     semester: int,
     unit_number: int,
     num_questions: int = 5,
+    document_id: str | None = None,
 ) -> dict:
     """
     Get the quiz for a unit -- generated once and cached, not
@@ -25,11 +27,13 @@ def get_quiz(
             "sources": cached.get("sources") or [],
         }
 
+    chunks = grounding.deck_chunks(document_id, source_file=topic) if document_id else None
     result = _generate_quiz(
         topic=topic,
         subject=subject,
         semester=semester,
         num_questions=num_questions,
+        chunks=chunks or None,
     )
 
     if result.get("success"):

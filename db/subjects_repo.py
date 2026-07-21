@@ -46,6 +46,39 @@ def get_subject(semester: int, slug: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def get_subject_any(semester: int, slug: str) -> dict | None:
+    """Fetch a subject, tolerating a transient auth/RLS/network hiccup.
+
+    ``get_subject`` runs as the signed-in user. If a page loads before this
+    session's token is bound (or a request momentarily fails), that read comes
+    back empty and the UI renders an existing subject as "Subject not found".
+    The catalog isn't sensitive -- every logged-in user sees all of it -- so
+    fall back to the service client for this read-only lookup before giving up.
+    """
+    try:
+        row = get_subject(semester, slug)
+    except Exception:
+        row = None
+    if row is not None:
+        return row
+
+    try:
+        from db.client import get_service_client
+
+        response = (
+            get_service_client()
+            .table("subjects")
+            .select("*")
+            .eq("semester", semester)
+            .eq("slug", slug)
+            .execute()
+        )
+        rows = response.data or []
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
 def upsert_subject(
     semester: int,
     subject_name: str,
