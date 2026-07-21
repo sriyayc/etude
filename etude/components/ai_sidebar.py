@@ -66,7 +66,7 @@ def ai_sidebar(
             rx.vstack(
                 rx.text("Etude AI", color=t.TEXT, font_weight="700", font_size="15px"),
                 rx.text(
-                    ResourceState.subject_code + " · " + context_suffix,
+                    ResourceState.current_subject["subject_name"].to(str) + " · " + context_suffix,
                     color=t.TEXT_MUTED,
                     font_size="12px",
                     font_family=t.FONT_MONO,

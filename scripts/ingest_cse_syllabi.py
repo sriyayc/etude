@@ -137,7 +137,7 @@ def normalize_unit_headers(text: str) -> str:
 #  PDF generation                                                     #
 # ------------------------------------------------------------------ #
 
-def build_syllabus_pdf(subject_code: str, subject_name: str, content_block: str, out_path: str) -> None:
+def build_syllabus_pdf(subject_name: str, content_block: str, out_path: str) -> None:
     """Build a simple text-extractable PDF containing the subject name and
     its verbatim Course Content block (with 'Unit N:' headers preserved).
 
@@ -147,7 +147,7 @@ def build_syllabus_pdf(subject_code: str, subject_name: str, content_block: str,
     """
     import textwrap
 
-    full_text = f"{subject_code}: {subject_name}\n\n{content_block}"
+    full_text = f"{subject_name}\n\n{content_block}"
 
     doc = fitz.open()
     page_rect = fitz.paper_rect("a4")
@@ -228,7 +228,7 @@ def main():
         content_block = normalize_unit_headers(content_block)
 
         try:
-            upsert_subject(semester=semester, subject_code=code, subject_name=name)
+            upsert_subject(semester=semester, subject_name=name)
         except Exception as e:
             print(f"  FAIL (upsert_subject): {e}")
             results.append({
@@ -239,7 +239,7 @@ def main():
 
         pdf_path = os.path.join(tmp_dir, f"{code}_syllabus_{run_id}.pdf")
         try:
-            build_syllabus_pdf(code, name, content_block, pdf_path)
+            build_syllabus_pdf(name, content_block, pdf_path)
         except Exception as e:
             print(f"  FAIL (build_pdf): {e}")
             results.append({

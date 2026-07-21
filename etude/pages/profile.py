@@ -48,7 +48,11 @@ def stat_tile(icon: str, label: str, value, sub: str):
     )
 
 
-def activity_row(text: str, when: str):
+def empty_hint(text: str):
+    return rx.text(text, color=t.TEXT_MUTED, font_size="13px", padding="12px 0")
+
+
+def activity_row(text, when):
     return rx.hstack(
         rx.box(width="7px", height="7px", border_radius=t.RADIUS_PILL, background=t.ACCENT),
         rx.text(text, color=t.TEXT_BODY, font_size="14px"),
@@ -62,16 +66,16 @@ def activity_row(text: str, when: str):
     )
 
 
-def tracker_row(label: str, pct: int):
+def tracker_row(label, pct):
     return rx.vstack(
         rx.hstack(
             rx.text(label, color=t.TEXT_BODY, font_size="14px"),
             rx.spacer(),
-            rx.text(f"{pct}%", color=t.ACCENT_STRONG, font_size="13px", font_weight="600"),
+            rx.text(pct.to_string() + "%", color=t.ACCENT_STRONG, font_size="13px", font_weight="600"),
             width="100%",
         ),
         rx.box(
-            rx.box(width=f"{pct}%", height="100%", bg=t.ACCENT, border_radius=t.RADIUS_PILL),
+            rx.box(width=pct.to_string() + "%", height="100%", bg=t.ACCENT, border_radius=t.RADIUS_PILL),
             width="100%",
             height="7px",
             bg=t.BG_SUBTLE,
@@ -135,11 +139,25 @@ def profile_page():
             rx.grid(
                 ui.card(
                     rx.text("Recent activity", color=t.TEXT, font_weight="600", font_size="16px", margin_bottom="8px"),
-                    *[activity_row(*a) for a in ACTIVITY],
+                    rx.cond(
+                        UserState.activity_rows.length() > 0,
+                        rx.foreach(
+                            UserState.activity_rows,
+                            lambda a: activity_row(a["label"], a["when"]),
+                        ),
+                        empty_hint("No activity yet — take a quiz to get started."),
+                    ),
                 ),
                 ui.card(
                     rx.text("Syllabus tracker", color=t.TEXT, font_weight="600", font_size="16px", margin_bottom="8px"),
-                    *[tracker_row(*tr) for tr in TRACKER],
+                    rx.cond(
+                        UserState.tracker_rows.length() > 0,
+                        rx.foreach(
+                            UserState.tracker_rows,
+                            lambda tr: tracker_row(tr["label"], tr["pct"]),
+                        ),
+                        empty_hint("Your best quiz score per unit will show up here."),
+                    ),
                 ),
                 columns=rx.breakpoints(initial="1", lg="2"),
                 spacing="4",

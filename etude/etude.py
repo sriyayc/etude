@@ -53,13 +53,17 @@ app.add_page(profile_page, route="/profile", on_load=UserState.load_profile)
 app.add_page(
     upload_page,
     route="/upload",
-    on_load=[UserState.load_profile, UserState.require_admin_role],
+    on_load=[
+        UserState.load_profile,
+        UserState.require_admin_role,
+        UserState.load_upload_subjects,
+    ],
 )
 
 # Dynamic routes — handles semesters, subjects, slides, quizzes, flashcards, and notes
 app.add_page(subjects_page, route="/resources/[semester]")
-app.add_page(subject_detail_page, route="/resources/[semester]/[subject_code]")
-app.add_page(slides_viewer_page, route="/resources/[semester]/[subject_code]/slides")
-app.add_page(quiz_page, route="/resources/[semester]/[subject_code]/quiz", on_load=QuizState.load_units)
-app.add_page(flashcards_page, route="/resources/[semester]/[subject_code]/flashcards", on_load=FlashcardState.load_units)
-app.add_page(notes_page, route="/resources/[semester]/[subject_code]/notes", on_load=NotesState.load_units)
+app.add_page(subject_detail_page, route="/resources/[semester]/[subject_slug]")
+app.add_page(slides_viewer_page, route="/resources/[semester]/[subject_slug]/slides")
+app.add_page(quiz_page, route="/resources/[semester]/[subject_slug]/quiz", on_load=QuizState.load_units)
+app.add_page(flashcards_page, route="/resources/[semester]/[subject_slug]/flashcards", on_load=FlashcardState.load_units)
+app.add_page(notes_page, route="/resources/[semester]/[subject_slug]/notes", on_load=NotesState.load_units)

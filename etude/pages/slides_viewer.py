@@ -1,7 +1,7 @@
 """Slide viewer with pinned AI sidebar.
 
 Route:
-    /resources/[semester]/[subject_code]/slides
+    /resources/[semester]/[subject_slug]/slides
 """
 
 import reflex as rx
@@ -39,8 +39,8 @@ def slides_viewer_page() -> rx.Component:
                 ("Resources", "/dashboard"),
                 ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
                 (
-                    ResourceState.subject_code,
-                    f"/resources/{ResourceState.semester}/{ResourceState.subject_code}",
+                    ResourceState.current_subject["subject_name"],
+                    f"/resources/{ResourceState.semester}/{ResourceState.subject_slug}",
                 ),
                 ("Slides", None),
             ],
@@ -58,7 +58,7 @@ def slides_viewer_page() -> rx.Component:
                     font_size="15px",
                 ),
                 rx.text(
-                    ResourceState.subject_code + " · lecture slides",
+                    "lecture slides",
                     color=t.TEXT_MUTED,
                     font_size="13px",
                     font_family=t.FONT_MONO,
@@ -70,7 +70,7 @@ def slides_viewer_page() -> rx.Component:
             toolbar_link("download", "Download", ResourceState.pdf_url, external=True),
             toolbar_link(
                 "layers", "Flashcards",
-                f"/resources/{ResourceState.semester}/{ResourceState.subject_code}/flashcards",
+                f"/resources/{ResourceState.semester}/{ResourceState.subject_slug}/flashcards",
             ),
             toolbar_link("clipboard-check", "Quiz", ResourceState.quiz_url),
             width="100%",

@@ -30,6 +30,66 @@ def field_label(text: str):
     return rx.text(text, color=t.TEXT, font_size="13px", font_weight="600")
 
 
+def subject_admin_panel():
+    """Add or remove subjects in the selected semester.
+
+    Lives beside the upload form because that is where an admin discovers a
+    subject is missing -- one place to fix it rather than a separate screen.
+    """
+    return rx.box(
+        rx.hstack(
+            rx.icon("folder-cog", size=15, color=t.TEXT_MUTED),
+            rx.text(
+                "Manage subjects in semester " + UserState.upload_semester,
+                color=t.TEXT_MUTED,
+                font_size="12px",
+                font_weight="600",
+            ),
+            spacing="2",
+            align_items="center",
+            margin_bottom="10px",
+        ),
+        rx.hstack(
+            ui.text_input(
+                placeholder="New subject name — e.g. Operating Systems",
+                value=UserState.new_subject_name,
+                on_change=UserState.set_new_subject_name,
+                flex="1",
+            ),
+            ui.ghost_button("Add", on_click=UserState.create_new_subject),
+            ui.ghost_button("Delete selected", on_click=UserState.delete_selected_subject),
+            spacing="2",
+            width="100%",
+            align_items="center",
+        ),
+        rx.cond(
+            UserState.subject_admin_error != "",
+            rx.text(
+                UserState.subject_admin_error,
+                color=t.ERROR,
+                font_size="12px",
+                margin_top="8px",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            UserState.subject_admin_notice != "",
+            rx.text(
+                UserState.subject_admin_notice,
+                color=t.SUCCESS,
+                font_size="12px",
+                margin_top="8px",
+            ),
+            rx.fragment(),
+        ),
+        width="100%",
+        padding="14px 16px",
+        background=t.BG_SUBTLE,
+        border=f"1px solid {t.BORDER}",
+        border_radius=t.RADIUS_MD,
+    )
+
+
 def upload_page():
     return ui.page(
         topbar(breadcrumb="Upload", active="upload", srn=UserState.srn),
@@ -60,20 +120,9 @@ def upload_page():
                     ),
                     rx.hstack(
                         rx.vstack(
-                            field_label("Subject code"),
-                            ui.text_input(
-                                placeholder="e.g. UE23CS252B",
-                                value=UserState.upload_subject,
-                                on_change=UserState.set_upload_subject,
-                            ),
-                            spacing="2",
-                            width="100%",
-                            align_items="start",
-                        ),
-                        rx.vstack(
                             field_label("Semester"),
                             rx.select(
-                                [str(n) for n in range(1, 9)],
+                                [str(n) for n in range(1, 7)],
                                 value=UserState.upload_semester,
                                 on_change=UserState.set_upload_semester,
                                 width="100%",
@@ -82,9 +131,24 @@ def upload_page():
                             width="150px",
                             align_items="start",
                         ),
+                        rx.vstack(
+                            field_label("Subject"),
+                            rx.select(
+                                UserState.upload_subject_options,
+                                value=UserState.upload_subject,
+                                on_change=UserState.set_upload_subject,
+                                placeholder="Choose a subject…",
+                                width="100%",
+                            ),
+                            spacing="2",
+                            width="100%",
+                            align_items="start",
+                        ),
                         spacing="4",
                         width="100%",
+                        align_items="end",
                     ),
+                    subject_admin_panel(),
                     rx.vstack(
                         field_label("Document type"),
                         rx.hstack(

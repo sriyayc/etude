@@ -50,14 +50,6 @@ def subject_card(subject: rx.Var) -> rx.Component:
                 align_items="center",
             ),
             rx.text(
-                subject["subject_code"],
-                color=t.ACCENT_STRONG,
-                font_family=t.FONT_MONO,
-                font_size="12px",
-                font_weight="600",
-                margin_top="18px",
-            ),
-            rx.text(
                 subject["subject_name"],
                 color=t.TEXT,
                 font_family=t.FONT_DISPLAY,
@@ -94,7 +86,7 @@ def subject_card(subject: rx.Var) -> rx.Component:
             display="flex",
             flex_direction="column",
         ),
-        href=f"/resources/{ResourceState.semester}/{subject['subject_code']}",
+        href=f"/resources/{ResourceState.semester}/{subject['slug']}",
         display="block",
         text_decoration="none",
         height="100%",

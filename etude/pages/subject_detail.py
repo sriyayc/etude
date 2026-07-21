@@ -1,4 +1,4 @@
-"""Subject detail — /resources/[semester]/[subject_code]"""
+"""Subject detail — /resources/[semester]/[subject_slug]"""
 
 import reflex as rx
 
@@ -49,27 +49,20 @@ def mode_card(icon: str, title: str, description: str, href: str) -> rx.Componen
 
 def subject_detail_page():
     semester = ResourceState.router.page.params.get("semester", "1")
-    subject_code = ResourceState.router.page.params.get("subject_code", "")
+    subject_slug = ResourceState.router.page.params.get("subject_slug", "")
 
     return ui.page(
         topbar(
             trail=[
                 ("Resources", "/dashboard"),
                 (f"Semester {semester}", f"/resources/{semester}"),
-                (subject_code, None),
+                (ResourceState.current_subject["subject_name"], None),
             ],
             active="resources",
             srn=UserState.srn,
         ),
         ui.container(
             rx.vstack(
-                rx.text(
-                    subject_code,
-                    color=t.ACCENT_STRONG,
-                    font_family=t.FONT_MONO,
-                    font_size="13px",
-                    font_weight="600",
-                ),
                 ui.heading(
                     ResourceState.current_subject["subject_name"],
                     size="40px",
@@ -115,25 +108,25 @@ def subject_detail_page():
                     "presentation",
                     "Lecture slides",
                     "The original deck rendered as-is, with an AI tutor pinned alongside.",
-                    f"/resources/{semester}/{subject_code}/slides",
+                    f"/resources/{semester}/{subject_slug}/slides",
                 ),
                 mode_card(
                     "file-text",
                     "Compiled notes",
                     "Slides and textbook merged into one linear, cited narrative per unit.",
-                    f"/resources/{semester}/{subject_code}/notes",
+                    f"/resources/{semester}/{subject_slug}/notes",
                 ),
                 mode_card(
                     "layers",
                     "Flashcards",
                     "Active-recall cards generated once per unit and shared by everyone.",
-                    f"/resources/{semester}/{subject_code}/flashcards",
+                    f"/resources/{semester}/{subject_slug}/flashcards",
                 ),
                 mode_card(
                     "clipboard-check",
                     "Quiz",
                     "A syllabus-bound self-assessment for each unit, ready to take.",
-                    f"/resources/{semester}/{subject_code}/quiz",
+                    f"/resources/{semester}/{subject_slug}/quiz",
                 ),
                 columns=rx.breakpoints(initial="1", sm="2"),
                 spacing="4",

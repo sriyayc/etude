@@ -48,7 +48,6 @@ _BULLET_SPLIT_RE = re.compile(r"[•▪]")
 def sync_catalog(
     pdf_path: str,
     document_uuid: str,
-    subject_code: str,
     subject_name: str,
     semester: int,
 ) -> dict:
@@ -56,7 +55,7 @@ def sync_catalog(
 
     Safe to call again for the same document_uuid -- slides upsert on
     (document_id, slide_number), and subjects upsert on
-    (semester, subject_code).
+    (semester, slug) -- where the slug is derived from subject_name.
 
     Returns:
         {"slides_created": int, "modules_detected": int, "topics_created": int}
@@ -79,7 +78,6 @@ def sync_catalog(
 
     subjects_repo.upsert_subject(
         semester=semester,
-        subject_code=subject_code,
         subject_name=subject_name,
         syllabus_status="current",
         slide_count=len(pages),
@@ -92,7 +90,7 @@ def sync_catalog(
         module_by_page=module_by_page,
         module_titles=module_titles,
         document_id=document_uuid,
-        subject=subject_code,
+        subject=subjects_repo.slugify(subject_name),
         semester=semester,
     )
 

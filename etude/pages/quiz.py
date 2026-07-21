@@ -1,4 +1,4 @@
-"""Quiz Page — /resources/[semester]/[subject_code]/quiz"""
+"""Quiz Page — /resources/[semester]/[subject_slug]/quiz"""
 
 import reflex as rx
 
@@ -265,7 +265,7 @@ def quiz_view() -> rx.Component:
 def unit_picker() -> rx.Component:
     return rx.box(
         rx.vstack(
-            ui.eyebrow(ResourceState.subject_code + " · self assessment"),
+            ui.eyebrow(ResourceState.current_subject["subject_name"].to(str) + " · self assessment"),
             ui.heading("Take a quiz", size="34px", margin_top="6px"),
             ui.subtext(
                 "Pick a syllabus unit to generate a 5-question test grounded in your syllabus.",
@@ -323,7 +323,7 @@ def quiz_page() -> rx.Component:
             trail=[
                 ("Resources", "/dashboard"),
                 ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
-                (ResourceState.subject_code, f"/resources/{ResourceState.semester}/{ResourceState.subject_code}"),
+                (ResourceState.current_subject["subject_name"], f"/resources/{ResourceState.semester}/{ResourceState.subject_slug}"),
                 ("Quiz", None),
             ],
             active="resources",

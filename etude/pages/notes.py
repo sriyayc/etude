@@ -1,4 +1,4 @@
-"""Compiled Notes Page — /resources/[semester]/[subject_code]/notes"""
+"""Compiled Notes Page — /resources/[semester]/[subject_slug]/notes"""
 
 import reflex as rx
 
@@ -75,7 +75,7 @@ def notes_viewer() -> rx.Component:
         ),
         rx.box(
             rx.vstack(
-                ui.eyebrow("Unit study guide · " + ResourceState.subject_code),
+                ui.eyebrow("Unit study guide · " + ResourceState.current_subject["subject_name"].to(str)),
                 ui.heading(NotesState.selected_unit_title, size="30px", margin_top="6px"),
                 ui.subtext(
                     "A linear narrative compiled from your syllabus. Every statement stays grounded in the source.",
@@ -137,7 +137,7 @@ def notes_viewer() -> rx.Component:
 def unit_picker() -> rx.Component:
     return rx.box(
         rx.vstack(
-            ui.eyebrow(ResourceState.subject_code + " · revision guide"),
+            ui.eyebrow(ResourceState.current_subject["subject_name"].to(str) + " · revision guide"),
             ui.heading("Compiled notes", size="34px", margin_top="6px"),
             ui.subtext(
                 "Pick a syllabus unit to generate unified revision notes.",
@@ -196,7 +196,7 @@ def notes_page() -> rx.Component:
             trail=[
                 ("Resources", "/dashboard"),
                 ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
-                (ResourceState.subject_code, f"/resources/{ResourceState.semester}/{ResourceState.subject_code}"),
+                (ResourceState.current_subject["subject_name"], f"/resources/{ResourceState.semester}/{ResourceState.subject_slug}"),
                 ("Notes", None),
             ],
             active="resources",

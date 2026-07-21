@@ -2,6 +2,7 @@
 
 import reflex as rx
 import asyncio
+from datetime import datetime, timezone
 from typing import TypedDict
 
 import config
@@ -17,7 +18,24 @@ from services import (
     flashcard_service,
     notes_service,
 )
-from db import stats_repo, subjects_repo, syllabus_repo
+from db import quiz_attempts_repo, stats_repo, subjects_repo, syllabus_repo
+
+
+def _relative_time(ts, now) -> str:
+    """Render a timestamp as 'just now' / '3h ago' / '2d ago'."""
+    if not ts:
+        return ""
+    try:
+        when = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    seconds = (now - when).total_seconds()
+    if seconds < 3600:
+        return "just now" if seconds < 120 else f"{int(seconds // 60)}m ago"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)}h ago"
+    days = int(seconds // 86400)
+    return "yesterday" if days == 1 else f"{days}d ago"
 
 
 async def bind_session(state) -> None:
@@ -92,7 +110,7 @@ class ResourceState(rx.State):
     # ---------------------------------------------------------
 
     current_subject: dict = {
-        "subject_code": "",
+        "slug": "",
         "subject_name": "Subject",
         "semester": 0,
         "syllabus_status": "current",
@@ -149,7 +167,7 @@ class ResourceState(rx.State):
 
         return (
             f"/resources/{self.semester}/"
-            f"{self.subject_code}/quiz"
+            f"{self.subject_slug}/quiz"
         )
 
     # ---------------------------------------------------------
@@ -195,8 +213,8 @@ class ResourceState(rx.State):
             normalized_subjects.append(
                 {
                     **row,
-                    "subject_code": (
-                        row.get("subject_code") or ""
+                    "slug": (
+                        row.get("slug") or ""
                     ),
                     "subject_name": (
                         row.get("subject_name")
@@ -238,7 +256,7 @@ class ResourceState(rx.State):
         try:
             subject = subjects_repo.get_subject(
                 semester=semester_number,
-                subject_code=str(self.subject_code),
+                slug=str(self.subject_slug),
             )
         except Exception as exc:
             self.resource_error = str(exc)
@@ -246,7 +264,7 @@ class ResourceState(rx.State):
 
         if not subject:
             self.current_subject = {
-                "subject_code": str(self.subject_code),
+                "slug": str(self.subject_slug),
                 "subject_name": "Subject not found",
                 "semester": semester_number,
                 "syllabus_status": "current",
@@ -258,9 +276,9 @@ class ResourceState(rx.State):
 
         self.current_subject = {
             **subject,
-            "subject_code": (
-                subject.get("subject_code")
-                or str(self.subject_code)
+            "slug": (
+                subject.get("slug")
+                or str(self.subject_slug)
             ),
             "subject_name": (
                 subject.get("subject_name")
@@ -308,7 +326,7 @@ class ResourceState(rx.State):
         try:
             subject = subjects_repo.get_subject(
                 semester=semester_number,
-                subject_code=str(self.subject_code),
+                slug=str(self.subject_slug),
             )
         except Exception as exc:
             self.resource_error = str(exc)
@@ -318,7 +336,7 @@ class ResourceState(rx.State):
         if not subject:
             self.slides = []
             self.current_subject = {
-                "subject_code": str(self.subject_code),
+                "slug": str(self.subject_slug),
                 "subject_name": "Subject not found",
                 "semester": semester_number,
                 "syllabus_status": "current",
@@ -330,9 +348,9 @@ class ResourceState(rx.State):
 
         self.current_subject = {
             **subject,
-            "subject_code": (
-                subject.get("subject_code")
-                or str(self.subject_code)
+            "slug": (
+                subject.get("slug")
+                or str(self.subject_slug)
             ),
             "subject_name": (
                 subject.get("subject_name")
@@ -583,7 +601,7 @@ class QuizState(rx.State):
         except (TypeError, ValueError):
             semester_number = 1
 
-        self.units = _load_units(str(self.subject_code), semester_number)
+        self.units = _load_units(str(self.subject_slug), semester_number)
 
         if not self.units:
             self.units_error = "No syllabus units found for this subject yet."
@@ -608,7 +626,7 @@ class QuizState(rx.State):
         try:
             result = quiz_service.get_quiz(
                 topic=unit_title,
-                subject=str(self.subject_code),
+                subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
             )
@@ -728,7 +746,7 @@ class FlashcardState(rx.State):
         except (TypeError, ValueError):
             semester_number = 1
 
-        self.units = _load_units(str(self.subject_code), semester_number)
+        self.units = _load_units(str(self.subject_slug), semester_number)
 
         if not self.units:
             self.units_error = "No syllabus units found for this subject yet."
@@ -751,7 +769,7 @@ class FlashcardState(rx.State):
         try:
             result = flashcard_service.get_flashcards(
                 topic=unit_title,
-                subject=str(self.subject_code),
+                subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
             )
@@ -822,7 +840,7 @@ class NotesState(rx.State):
         except (TypeError, ValueError):
             semester_number = 1
 
-        self.units = _load_units(str(self.subject_code), semester_number)
+        self.units = _load_units(str(self.subject_slug), semester_number)
 
         if not self.units:
             self.units_error = "No syllabus units found for this subject yet."
@@ -843,7 +861,7 @@ class NotesState(rx.State):
         try:
             result = notes_service.get_revision_notes(
                 topic=unit_title,
-                subject=str(self.subject_code),
+                subject=str(self.subject_slug),
                 semester=semester_number,
                 unit_number=unit_number,
             )
@@ -892,6 +910,8 @@ class UserState(rx.State):
 
     # ---- leaderboard (loaded on /leaderboard) ----
     leaderboard_rows: list[dict] = []
+    activity_rows: list[dict] = []
+    tracker_rows: list[dict] = []
 
     # ---- signup form fields ----
     signup_full_name: str = ""
@@ -919,8 +939,14 @@ class UserState(rx.State):
     # ---- admin upload form fields ----
     upload_title: str = ""
     upload_document_type: str = "textbook"
+    # Holds the subject *name* picked from the dropdown. The stable slug is
+    # derived from it at use time -- course codes change every year.
     upload_subject: str = ""
     upload_semester: str = "1"
+    upload_subject_options: list[str] = []
+    new_subject_name: str = ""
+    subject_admin_error: str = ""
+    subject_admin_notice: str = ""
     upload_error: str = ""
     upload_success: bool = False
     upload_loading: bool = False
@@ -960,8 +986,79 @@ class UserState(rx.State):
     def set_upload_subject(self, value: str):
         self.upload_subject = value
 
-    def set_upload_semester(self, value: str):
+    def set_new_subject_name(self, value: str):
+        self.new_subject_name = value
+
+    @rx.event
+    async def set_upload_semester(self, value: str):
         self.upload_semester = value
+        # Changing semester invalidates the picked subject -- a subject only
+        # exists within one semester.
+        self.upload_subject = ""
+        await self.load_upload_subjects()
+
+    @rx.event
+    async def load_upload_subjects(self):
+        """Populate the subject dropdown for the selected semester."""
+        await bind_session(self)
+        self.subject_admin_error = ""
+        try:
+            semester_number = int(self.upload_semester)
+        except (TypeError, ValueError):
+            self.upload_subject_options = []
+            return
+        try:
+            rows = subjects_repo.list_subjects_by_semester(semester_number)
+        except Exception as exc:
+            self.subject_admin_error = str(exc)
+            self.upload_subject_options = []
+            return
+        self.upload_subject_options = [
+            r.get("subject_name") or "" for r in rows if r.get("subject_name")
+        ]
+
+    @rx.event
+    async def create_new_subject(self):
+        """Admin: add a subject to the selected semester."""
+        await bind_session(self)
+        self.subject_admin_error = ""
+        self.subject_admin_notice = ""
+        try:
+            if auth_service.get_current_user().get("role") != "admin":
+                self.subject_admin_error = "Only admins can manage subjects."
+                return
+            semester_number = int(self.upload_semester)
+            row = subjects_repo.create_subject(semester_number, self.new_subject_name)
+        except Exception as exc:
+            self.subject_admin_error = str(exc)
+            return
+        self.subject_admin_notice = f"Added '{row.get('subject_name')}'."
+        self.new_subject_name = ""
+        await self.load_upload_subjects()
+
+    @rx.event
+    async def delete_selected_subject(self):
+        """Admin: remove the subject currently picked in the dropdown."""
+        await bind_session(self)
+        self.subject_admin_error = ""
+        self.subject_admin_notice = ""
+        if not self.upload_subject:
+            self.subject_admin_error = "Pick a subject to delete."
+            return
+        try:
+            if auth_service.get_current_user().get("role") != "admin":
+                self.subject_admin_error = "Only admins can manage subjects."
+                return
+            semester_number = int(self.upload_semester)
+            subjects_repo.delete_subject(
+                semester_number, subjects_repo.slugify(self.upload_subject)
+            )
+        except Exception as exc:
+            self.subject_admin_error = str(exc)
+            return
+        self.subject_admin_notice = f"Deleted '{self.upload_subject}'."
+        self.upload_subject = ""
+        await self.load_upload_subjects()
 
     # ---- actions ----
     async def handle_signup(self):
@@ -1155,6 +1252,45 @@ class UserState(rx.State):
         self.streak = stats_repo.get_user_streak(self.user_id)
         self.subjects_active = stats_repo.get_subjects_active(self.user_id)
         self.leaderboard_rows = stats_repo.get_leaderboard(limit=20)
+        self._load_activity_and_tracker()
+
+    def _load_activity_and_tracker(self):
+        """Derive the profile's activity feed and syllabus tracker.
+
+        Both panels shipped as hardcoded mock rows. They now read the
+        user's real quiz attempts -- the only per-user progress signal the
+        schema actually records.
+        """
+        self.activity_rows = []
+        self.tracker_rows = []
+        try:
+            attempts = quiz_attempts_repo.get_user_attempts(self.user_id, limit=50)
+        except Exception:
+            return
+
+        now = datetime.now(timezone.utc)
+        for a in attempts[:5]:
+            total = a.get("total_questions") or 0
+            topic = a.get("topic_name") or "Quiz"
+            self.activity_rows.append({
+                "label": f"Quiz · {topic} · {a.get('score', 0)}/{total}",
+                "when": _relative_time(a.get("attempted_at"), now),
+            })
+
+        # Tracker shows best score per topic -- the closest thing to
+        # "how well do I know this unit" that we can honestly compute.
+        best: dict[str, int] = {}
+        for a in attempts:
+            total = a.get("total_questions") or 0
+            if not total:
+                continue
+            topic = a.get("topic_name") or "Quiz"
+            pct = round((a.get("score") or 0) * 100 / total)
+            best[topic] = max(best.get(topic, 0), pct)
+        self.tracker_rows = [
+            {"label": k, "pct": v}
+            for k, v in sorted(best.items(), key=lambda kv: -kv[1])[:5]
+        ]
 
     def require_admin_role(self):
         """Chain after load_profile in on_load for admin-only routes."""
@@ -1181,7 +1317,7 @@ class UserState(rx.State):
             return
 
         if not self.upload_subject:
-            self.upload_error = "Enter the subject code."
+            self.upload_error = "Pick a subject."
             return
 
         try:
@@ -1208,14 +1344,14 @@ class UserState(rx.State):
                     file_path=str(dest),
                     title=self.upload_title,
                     document_type=self.upload_document_type,
-                    subject=self.upload_subject,
+                    subject=subjects_repo.slugify(self.upload_subject),
                     semester=semester_number,
                 )
 
                 ingestion_service.ingest_document(
                     pdf_path=str(dest),
                     document_type=self.upload_document_type,
-                    subject=self.upload_subject,
+                    subject=subjects_repo.slugify(self.upload_subject),
                     semester=semester_number,
                 )
 
@@ -1232,18 +1368,17 @@ class UserState(rx.State):
                 ):
                     existing_subject = subjects_repo.get_subject(
                         semester=semester_number,
-                        subject_code=self.upload_subject,
+                        slug=subjects_repo.slugify(self.upload_subject),
                     )
                     subject_name = (
                         existing_subject.get("subject_name")
                         if existing_subject
                         else None
-                    ) or self.upload_title
+                    ) or self.upload_subject
 
                     catalog_service.sync_catalog(
                         pdf_path=str(dest),
                         document_uuid=doc_res["document_id"],
-                        subject_code=self.upload_subject,
                         subject_name=subject_name,
                         semester=semester_number,
                     )
