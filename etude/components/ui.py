@@ -155,50 +155,37 @@ def ghost_button(label, icon: str | None = None, **props) -> rx.Component:
 
 
 def text_input(**props) -> rx.Component:
-    """Themed text field.
+    """Themed single-line text field — deliberately *uncontrolled*.
 
-    rx.input renders a Radix TextField.Root *wrapper* around the real <input>.
-    Padding passed here lands on that wrapper, which squeezes the inner input
-    down to a few px tall while it keeps a ~21px line-height and overflow:clip
-    -- the glyphs get clipped to a thin horizontal band that reads as a
-    strikethrough. So: size the wrapper with height, and pad the inner input.
+    A controlled input (``value=`` + ``on_change=``) is wrapped by Reflex in
+    react-debounce-input. Over a network round-trip the server echoes its copy
+    of the value back on (almost) every keystroke, and that echo fights the
+    caret: characters visibly drop or revert while you type. No debounce
+    setting fixes it — the echo just lands at a different moment.
+
+    So render a raw ``<input>`` whose text the DOM owns. Typing is native and
+    smooth; ``on_change`` still fires per keystroke to keep state in sync, but
+    because ``value=`` isn't bound back, nothing overwrites what you typed.
+    Callers still pass ``value=`` for the initial text — it becomes the
+    uncontrolled ``default_value`` (so a fresh mount after ``state.reset()``
+    shows the right thing) without reintroducing the glitch.
     """
+    if "value" in props and "default_value" not in props:
+        props["default_value"] = props.pop("value")
+    else:
+        props.pop("value", None)
+
+    props.setdefault("height", "44px")
+    props.setdefault("width", "100%")
     props.setdefault("background", t.BG_CARD)
     props.setdefault("border", f"1px solid {t.BORDER_STRONG}")
     props.setdefault("border_radius", t.RADIUS_SM)
+    props.setdefault("color", t.TEXT)
     props.setdefault("font_family", t.FONT_BODY)
     props.setdefault("font_size", "14px")
-    props.setdefault("height", "44px")
-    props.setdefault("padding", "0")
-    props.setdefault("width", "100%")
+    props.setdefault("padding", "0 14px")
+    props.setdefault("outline", "none")
     props.setdefault("_focus", {"border_color": t.ACCENT, "outline": "none"})
+    props.setdefault("_placeholder", {"color": t.TEXT_MUTED, "opacity": "1"})
 
-    # rx.input (value= + on_change=) is wrapped in a debouncer. Zeroing the
-    # timeout makes every keystroke round-trip to the server, whose echoed
-    # value fights the cursor -- typing visibly glitches and drops characters.
-    # So keep a normal debounce for smooth local typing, but force the value
-    # to commit the moment the field loses focus. Clicking a submit button
-    # blurs the field first, and Reflex processes that commit before the
-    # click handler -- so a form still submits correctly on the first click,
-    # without the per-keystroke round-trips.
-    props.setdefault("debounce_timeout", 300)
-    props.setdefault("force_notify_on_blur", True)
-    # Same reasoning for Enter-to-submit: flush the value on Enter so the
-    # keydown handler doesn't fire against a stale one.
-    props.setdefault("force_notify_by_enter", True)
-
-    style = dict(props.pop("style", {}) or {})
-    style.setdefault(
-        "& .rt-TextFieldInput",
-        {
-            "padding": "0 14px",
-            "height": "100%",
-            "width": "100%",
-            "color": t.TEXT,
-            "fontSize": "14px",
-            "fontFamily": t.FONT_BODY,
-            "&::placeholder": {"color": t.TEXT_MUTED, "opacity": "1"},
-        },
-    )
-    props["style"] = style
-    return rx.input(**props)
+    return rx.el.input(**props)

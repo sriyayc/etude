@@ -1401,10 +1401,6 @@ class UserState(rx.State):
             yield rx.redirect("/login")
             return
 
-        if not self.upload_title:
-            self.upload_error = "Give the document a title."
-            return
-
         if not self.upload_subject:
             self.upload_error = "Pick a subject."
             return
@@ -1416,7 +1412,13 @@ class UserState(rx.State):
             return
 
         if not files:
-            self.upload_error = "Choose a file first."
+            self.upload_error = "Choose at least one file."
+            return
+
+        # A batch titles each deck from its own filename, so the Title box is
+        # only needed for a single upload.
+        if len(files) == 1 and not self.upload_title:
+            self.upload_error = "Give the document a title."
             return
 
         slug = subjects_repo.slugify(self.upload_subject)
@@ -1514,3 +1516,10 @@ class UserState(rx.State):
         self.upload_status = ""
         self.upload_success = True
         self.upload_title = ""
+        self.upload_done_count = 0
+        self.upload_total_count = 0
+        # Reset the dropzone. Without this the previous file stays selected in
+        # the widget, so the next upload re-sends it (or the box looks stuck)
+        # and you have to reload the page to pick another -- which is exactly
+        # what made bulk uploading painful.
+        yield rx.clear_selected_files("document_upload")

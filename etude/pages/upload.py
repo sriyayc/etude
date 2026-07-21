@@ -108,7 +108,7 @@ def upload_page():
             ui.card(
                 rx.vstack(
                     rx.vstack(
-                        field_label("Title"),
+                        field_label("Title (optional when uploading several)"),
                         ui.text_input(
                             placeholder="e.g. Computer Networks — Unit 3 Slides",
                             value=UserState.upload_title,
@@ -169,10 +169,17 @@ def upload_page():
                                 display="flex",
                             ),
                             rx.text(
-                                "Drag a PDF here, or click to browse",
+                                "Drag PDFs here, or click to browse",
                                 color=t.TEXT_BODY,
                                 font_size="14px",
                                 font_weight="500",
+                            ),
+                            rx.text(
+                                "Select several at once — each becomes its own "
+                                "unit deck, titled from its filename.",
+                                color=t.TEXT_MUTED,
+                                font_size="12px",
+                                text_align="center",
                             ),
                             rx.foreach(
                                 rx.selected_files(UPLOAD_ID),
@@ -183,7 +190,8 @@ def upload_page():
                         ),
                         id=UPLOAD_ID,
                         accept={"application/pdf": [".pdf"]},
-                        max_files=1,
+                        multiple=True,
+                        max_files=50,
                         border=f"1.5px dashed {t.BORDER_STRONG}",
                         border_radius=t.RADIUS_MD,
                         background=t.BG_SUBTLE,
