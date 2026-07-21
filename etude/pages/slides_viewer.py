@@ -35,7 +35,15 @@ def slides_viewer_page() -> rx.Component:
 
     return rx.box(
         topbar(
-            breadcrumb="Slides",
+            trail=[
+                ("Resources", "/dashboard"),
+                ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
+                (
+                    ResourceState.subject_code,
+                    f"/resources/{ResourceState.semester}/{ResourceState.subject_code}",
+                ),
+                ("Slides", None),
+            ],
             active="resources",
             srn=UserState.srn,
         ),

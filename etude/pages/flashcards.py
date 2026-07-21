@@ -213,7 +213,16 @@ def unit_picker() -> rx.Component:
 
 def flashcards_page() -> rx.Component:
     return rx.box(
-        topbar(breadcrumb="Flashcards", active="resources", srn=UserState.srn),
+        topbar(
+            trail=[
+                ("Resources", "/dashboard"),
+                ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
+                (ResourceState.subject_code, f"/resources/{ResourceState.semester}/{ResourceState.subject_code}"),
+                ("Flashcards", None),
+            ],
+            active="resources",
+            srn=UserState.srn,
+        ),
         rx.hstack(
             rx.cond(FlashcardState.has_cards, flashcard_view(), unit_picker()),
             ai_sidebar(

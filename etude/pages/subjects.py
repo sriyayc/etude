@@ -104,11 +104,10 @@ def subject_card(subject: rx.Var) -> rx.Component:
 def subjects_page() -> rx.Component:
     return ui.page(
         topbar(
-            breadcrumb=rx.cond(
-                ResourceState.semester != "",
-                "Semester " + ResourceState.semester,
-                "Resources",
-            ),
+            trail=[
+                ("Resources", "/dashboard"),
+                ("Semester " + ResourceState.semester, None),
+            ],
             active="resources",
             srn=UserState.srn,
         ),

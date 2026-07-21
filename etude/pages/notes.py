@@ -192,7 +192,16 @@ def unit_picker() -> rx.Component:
 
 def notes_page() -> rx.Component:
     return rx.box(
-        topbar(breadcrumb="Notes", active="resources", srn=UserState.srn),
+        topbar(
+            trail=[
+                ("Resources", "/dashboard"),
+                ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
+                (ResourceState.subject_code, f"/resources/{ResourceState.semester}/{ResourceState.subject_code}"),
+                ("Notes", None),
+            ],
+            active="resources",
+            srn=UserState.srn,
+        ),
         rx.hstack(
             rx.cond(NotesState.has_notes, notes_viewer(), unit_picker()),
             ai_sidebar(

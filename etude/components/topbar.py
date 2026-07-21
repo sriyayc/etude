@@ -26,7 +26,63 @@ def nav_tab(icon: str, label: str, href: str, active: bool = False):
     )
 
 
-def topbar(breadcrumb: str, srn: str = "", active: str = ""):
+def _crumb_sep() -> rx.Component:
+    return rx.icon("chevron-right", size=15, color=t.TEXT_MUTED)
+
+
+def _breadcrumb_trail(breadcrumb, trail) -> rx.Component:
+    """Render the breadcrumb.
+
+    `trail` is a list of (label, href) pairs describing the path from the top
+    down to the current page; href=None marks the current page, which is
+    rendered as plain text. Every earlier crumb is a link, so clicking one goes
+    *up one level* rather than jumping all the way back to the dashboard.
+
+    Falls back to the old single-string `breadcrumb` when no trail is given.
+    """
+    if not trail:
+        return rx.box(
+            _crumb_sep(),
+            rx.text(breadcrumb, color=t.TEXT_BODY, font_size="14px", font_weight="500"),
+            display="flex",
+            align_items="center",
+            gap="6px",
+            margin_left="6px",
+        )
+
+    items: list[rx.Component] = []
+    for label, href in trail:
+        items.append(_crumb_sep())
+        if href:
+            items.append(
+                rx.link(
+                    label,
+                    href=href,
+                    color=t.TEXT_MUTED,
+                    font_size="14px",
+                    font_weight="500",
+                    text_decoration="none",
+                    transition="color .15s ease",
+                    _hover={"color": t.ACCENT_STRONG},
+                )
+            )
+        else:
+            # current page
+            items.append(
+                rx.text(label, color=t.TEXT, font_size="14px", font_weight="600")
+            )
+
+    return rx.box(
+        *items,
+        display="flex",
+        align_items="center",
+        gap="6px",
+        margin_left="6px",
+        flex_wrap="wrap",
+    )
+
+
+def topbar(breadcrumb: str = "", srn: str = "", active: str = "", trail=None):
 
     return rx.hstack(
 
@@ -40,19 +96,7 @@ def topbar(breadcrumb: str, srn: str = "", active: str = ""):
             align_items="center",
         ),
 
-        rx.box(
-            rx.icon("chevron-right", size=15, color=t.TEXT_MUTED),
-            rx.text(
-                breadcrumb,
-                color=t.TEXT_BODY,
-                font_size="14px",
-                font_weight="500",
-            ),
-            display="flex",
-            align_items="center",
-            gap="6px",
-            margin_left="6px",
-        ),
+        _breadcrumb_trail(breadcrumb, trail),
 
         rx.spacer(),
 

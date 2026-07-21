@@ -319,7 +319,16 @@ def unit_picker() -> rx.Component:
 
 def quiz_page() -> rx.Component:
     return rx.box(
-        topbar(breadcrumb="Quiz", active="resources", srn=UserState.srn),
+        topbar(
+            trail=[
+                ("Resources", "/dashboard"),
+                ("Semester " + ResourceState.semester, f"/resources/{ResourceState.semester}"),
+                (ResourceState.subject_code, f"/resources/{ResourceState.semester}/{ResourceState.subject_code}"),
+                ("Quiz", None),
+            ],
+            active="resources",
+            srn=UserState.srn,
+        ),
         rx.hstack(
             rx.cond(
                 QuizState.has_quiz,

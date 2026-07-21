@@ -41,7 +41,24 @@ EXPOSE $PORT
 # Caddy keeps proxying to the hardcoded 127.0.0.1:8000 in the Caddyfile. That
 # produces "dial tcp 127.0.0.1:8000: connect: connection refused" on /ping and
 # fails the healthcheck. Pinning both sides to 8000 keeps them in agreement.
+#   `redis-server --daemonize yes` returns as soon as it forks, NOT when it is
+#   accepting connections. Reflex in prod treats an unreachable REFLEX_REDIS_URL
+#   as fatal: it prints "App running at: http://0.0.0.0:8000/", logs
+#   "Unable to connect to Redis", then exits without ever binding the port.
+#   Caddy then gets "connection refused" proxying /ping, the healthcheck 502s,
+#   and the container restart-loops -- with no Python traceback to show for it.
+#
+#   So: wait for redis to actually answer PING before starting Reflex, and if it
+#   never does, drop REFLEX_REDIS_URL so Reflex falls back to in-memory state.
+#   A single-replica deploy runs fine that way; better degraded than crash-looping.
 CMD caddy start --config Caddyfile --adapter caddyfile && \
-    redis-server --daemonize yes && \
+    redis-server --daemonize yes; \
+    for i in $(seq 1 50); do redis-cli ping >/dev/null 2>&1 && break; sleep 0.2; done; \
+    if redis-cli ping >/dev/null 2>&1; then \
+        echo "redis: ready"; \
+    else \
+        echo "redis: UNAVAILABLE - falling back to in-memory state"; \
+        unset REFLEX_REDIS_URL; \
+    fi; \
     exec reflex run --env prod --backend-only \
         --backend-host 0.0.0.0 --backend-port 8000

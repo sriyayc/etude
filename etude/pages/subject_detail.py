@@ -52,7 +52,15 @@ def subject_detail_page():
     subject_code = ResourceState.router.page.params.get("subject_code", "")
 
     return ui.page(
-        topbar(breadcrumb=subject_code, active="resources", srn=UserState.srn),
+        topbar(
+            trail=[
+                ("Resources", "/dashboard"),
+                (f"Semester {semester}", f"/resources/{semester}"),
+                (subject_code, None),
+            ],
+            active="resources",
+            srn=UserState.srn,
+        ),
         ui.container(
             rx.vstack(
                 rx.text(
