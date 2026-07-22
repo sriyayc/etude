@@ -189,6 +189,27 @@ def list_slides(document_id: str) -> list[dict]:
     return response.data or []
 
 
+def count_slides_for_documents(document_ids: list[str]) -> dict[str, int]:
+    """Return {document_id: slide_count} for many decks in a single query.
+
+    Replaces an N+1 (one list_slides per deck) when building the unit picker.
+    """
+    if not document_ids:
+        return {}
+    client = get_client()
+    response = (
+        client.table("slides")
+        .select("document_id")
+        .in_("document_id", document_ids)
+        .execute()
+    )
+    counts: dict[str, int] = {}
+    for row in response.data or []:
+        doc_id = str(row.get("document_id"))
+        counts[doc_id] = counts.get(doc_id, 0) + 1
+    return counts
+
+
 def get_slide(document_id: str, slide_number: int) -> dict | None:
     client = get_client()
     response = (

@@ -86,6 +86,13 @@ def _load_units(subject: str, semester: int) -> list[dict]:
     decks = [d for d in docs if d.get("document_type") == "slides" and d.get("id")]
     if decks:
         decks.sort(key=lambda d: _deck_sort_key(d.get("title") or ""))
+        # One query for every deck's slide count instead of one per deck.
+        try:
+            counts = subjects_repo.count_slides_for_documents(
+                [str(d.get("id")) for d in decks]
+            )
+        except Exception:
+            counts = {}
         result: list[dict] = []
         used_numbers: set[int] = set()
         for index, deck in enumerate(decks, start=1):
@@ -98,16 +105,12 @@ def _load_units(subject: str, semester: int) -> list[dict]:
                 number += 1
             used_numbers.add(number)
             doc_id = str(deck.get("id"))
-            try:
-                slide_n = len(subjects_repo.list_slides(document_id=doc_id))
-            except Exception:
-                slide_n = 0
             result.append(
                 {
                     "unit_number": number,
                     "unit_title": title,
                     "document_id": doc_id,
-                    "topic_count": slide_n,
+                    "topic_count": counts.get(doc_id, 0),
                 }
             )
         return result
@@ -1367,25 +1370,33 @@ class UserState(rx.State):
         self.srn = user.get("srn") or ""
         self.role = user["role"]
 
-        self.points = stats_repo.get_user_points(self.user_id)
-        self.rank = stats_repo.get_user_rank(self.user_id) or 0
-        self.streak = stats_repo.get_user_streak(self.user_id)
-        self.subjects_active = stats_repo.get_subjects_active(self.user_id)
-        self.leaderboard_rows = stats_repo.get_leaderboard(limit=20)
-        self._load_activity_and_tracker()
+        # These six reads are independent and were previously run one after
+        # another -- ~7 sequential Supabase round-trips that made the dashboard
+        # hang ~2.9s. Fire them concurrently (Supabase calls are blocking, so
+        # each goes on a thread) and the whole set costs about one round-trip.
+        uid = self.user_id
+        points, rank, streak, subjects_active, leaderboard, attempts = await asyncio.gather(
+            asyncio.to_thread(stats_repo.get_user_points, uid),
+            asyncio.to_thread(stats_repo.get_user_rank, uid),
+            asyncio.to_thread(stats_repo.get_user_streak, uid),
+            asyncio.to_thread(stats_repo.get_subjects_active, uid),
+            asyncio.to_thread(stats_repo.get_leaderboard, 20),
+            asyncio.to_thread(quiz_attempts_repo.get_user_attempts, uid, 50),
+            return_exceptions=True,
+        )
+        self.points = points if isinstance(points, int) else 0
+        self.rank = rank if isinstance(rank, int) else 0
+        self.streak = streak if isinstance(streak, int) else 0
+        self.subjects_active = subjects_active if isinstance(subjects_active, int) else 0
+        self.leaderboard_rows = leaderboard if isinstance(leaderboard, list) else []
+        self._build_activity_and_tracker(attempts if isinstance(attempts, list) else [])
 
-    def _load_activity_and_tracker(self):
-        """Derive the profile's activity feed and syllabus tracker.
-
-        Both panels shipped as hardcoded mock rows. They now read the
-        user's real quiz attempts -- the only per-user progress signal the
-        schema actually records.
-        """
+    def _build_activity_and_tracker(self, attempts: list):
+        """Derive the profile's activity feed and syllabus tracker from the
+        user's quiz attempts (already fetched by the caller)."""
         self.activity_rows = []
         self.tracker_rows = []
-        try:
-            attempts = quiz_attempts_repo.get_user_attempts(self.user_id, limit=50)
-        except Exception:
+        if not attempts:
             return
 
         now = datetime.now(timezone.utc)
