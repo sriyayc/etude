@@ -20,6 +20,7 @@ from collections import Counter
 
 from db import documents_repo, subjects_repo, syllabus_repo
 from ingestion.extract import extract_pages
+from ingestion.clean import clean_pages
 
 _ROMAN_NUMERALS = {
     "I": 1, "II": 2, "III": 3, "IV": 4, "V": 5,
@@ -62,7 +63,11 @@ def sync_catalog(
     """
     pages = extract_pages(pdf_path)
 
+    # Module detection keys off the running headers, so run it on the raw
+    # pages *before* stripping headers/footers from the stored slide text.
     module_by_page, module_titles = _detect_modules(pages)
+
+    clean = clean_pages(pages)
 
     slide_rows = [
         {
@@ -72,7 +77,7 @@ def sync_catalog(
             "title": _derive_slide_title(page["text"]),
             "content": page["text"].strip(),
         }
-        for page in pages
+        for page in clean
     ]
     subjects_repo.bulk_upsert_slides(slide_rows)
 

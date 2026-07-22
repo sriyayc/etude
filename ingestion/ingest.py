@@ -5,6 +5,7 @@ import hashlib
 import uuid
 
 from ingestion.extract import extract_pages
+from ingestion.clean import clean_pages
 from ingestion.chunk import chunk_pages
 from ingestion.cache import filter_new_chunks
 from providers.factory import get_embedder, get_vectorstore
@@ -38,7 +39,9 @@ def ingest_pdf(
     
     print(f"Extracting: {source_file}")
     pages = extract_pages(pdf_path)
-    
+    # Strip running headers/footers so they don't pollute the embeddings.
+    pages = clean_pages(pages)
+
     print(f"Chunking: {len(pages)} pages")
     chunks = chunk_pages(
         pages=pages,
