@@ -34,3 +34,6 @@ etude-env/
 # local reflex logs
 reflex_error.txt
 *.log
+
+# Runtime upload staging — never commit uploaded PDFs
+uploaded_files/

@@ -1053,6 +1053,11 @@ class UserState(rx.State):
     # upload never requires a page reload.
     upload_widget_key: int = 0
 
+    # Backend-only: the session token the background ingest task binds for its
+    # Supabase calls. Underscore prefix keeps it off the client -- it must
+    # never be serialized to the browser.
+    _ingest_token: str = ""
+
     @rx.var
     def upload_percent(self) -> int:
         """Completed share of a multi-file upload, for the progress bar."""
@@ -1413,13 +1418,16 @@ class UserState(rx.State):
             return rx.redirect("/dashboard")
 
     async def handle_upload(self, files: list[rx.UploadFile]):
-        """Upload + ingest PDFs, reporting progress as it goes.
+        """Receive uploaded PDFs, save them, then hand off to background ingest.
 
-        This is a generator: every ``yield`` flushes the current status to the
-        browser. The upload/ingest calls are synchronous and slow (embedding a
-        deck takes tens of seconds), so they run via ``asyncio.to_thread`` --
-        left inline they would block the event loop, no status would ever
-        paint, and the page would just look frozen.
+        Reflex forbids a background upload handler, and ingestion (embedding a
+        200-300 slide deck) is far too slow to run inside the /_upload request
+        -- doing so held the state lock and kept the POST open until the proxy
+        timed out ("context canceled"), so large uploads failed and the next
+        one looked stuck until a reload. So this handler only does the fast
+        part -- validate + write the files to disk -- then triggers the
+        background ``_ingest_pending`` event, which does the slow embedding off
+        the request. /_upload returns in seconds either way.
         """
         self.upload_error = ""
         self.upload_success = False
@@ -1429,16 +1437,12 @@ class UserState(rx.State):
 
         db_client.set_access_token(self.access_token or None)
 
-        # Re-check the role server-side against this session's own token
-        # rather than trusting client state, so a stale/spoofed role can't
-        # get an upload through.
+        # Re-check the role server-side against this session's own token.
         try:
             if auth_service.get_current_user()["role"] != "admin":
-                yield rx.redirect("/dashboard")
-                return
+                return rx.redirect("/dashboard")
         except Exception:
-            yield rx.redirect("/login")
-            return
+            return rx.redirect("/login")
 
         if not self.upload_subject:
             self.upload_error = "Pick a subject."
@@ -1454,76 +1458,107 @@ class UserState(rx.State):
             self.upload_error = "Choose at least one file."
             return
 
-        slug = subjects_repo.slugify(self.upload_subject)
         total = len(files)
-        # The Title box is a pure override now -- always optional. It used to
-        # be required for single uploads, but since it auto-clears after each
-        # success, a follow-up single upload hit "Give the document a title"
-        # and silently refused (looked like the upload just didn't fire).
         title_override = self.upload_title.strip()
+
+        # Fast: just persist the bytes to disk (no embedding here).
+        pending: list[dict] = []
+        for index, file in enumerate(files, start=1):
+            label = file.filename or "file " + str(index)
+            if total == 1 and title_override:
+                deck_title = title_override
+            else:
+                deck_title = (file.filename or label).rsplit(".", 1)[0].strip()
+            data = await file.read()
+            dest = rx.get_upload_dir() / file.filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            pending.append({"path": str(dest), "deck_title": deck_title, "label": label})
+
+        # The token is kept in a backend-only var (never an event arg, so it
+        # can't reach the client). Everything else is passed as arguments to
+        # the background task rather than via shared state -- two rapid uploads
+        # each carry their own queue, so one finishing can't wipe the other's.
+        self._ingest_token = self.access_token or ""
+
         self.upload_loading = True
         self.upload_total_count = total
-        yield
+        self.upload_done_count = 0
+        self.upload_status = "Queued — starting…"
+
+        return UserState.run_ingestion(
+            pending,
+            subjects_repo.slugify(self.upload_subject),
+            semester_number,
+            self.upload_document_type,
+            self.upload_subject,
+        )
+
+    @rx.event(background=True)
+    async def run_ingestion(
+        self,
+        pending: list[dict],
+        slug: str,
+        semester_number: int,
+        doc_type: str,
+        subject_name_input: str,
+    ):
+        """Embed + catalog the files saved by handle_upload, off the request.
+
+        Runs as a background task so the slow work never blocks the state lock
+        or a request. The file queue arrives as an argument (not shared state)
+        so overlapping uploads don't clobber each other. State is only touched
+        inside ``async with self:``.
+        """
+        async with self:
+            token = self._ingest_token or None
+        total = len(pending)
+
+        db_client.set_access_token(token)
 
         try:
-            for index, file in enumerate(files, start=1):
-                label = file.filename or "file " + str(index)
-                # Each PDF becomes its own deck tab titled from its filename
-                # (e.g. "Unit 3.pdf" -> "Unit 3"). A single upload may override
-                # that with whatever's in the Title box.
-                if total == 1 and title_override:
-                    deck_title = title_override
-                else:
-                    deck_title = (file.filename or label).rsplit(".", 1)[0].strip()
+            for index, item in enumerate(pending, start=1):
+                label = item["label"]
+                dest = item["path"]
                 counter = " (" + str(index) + "/" + str(total) + ")"
 
-                self.upload_status = "Reading " + label + counter
-                yield
+                # to_thread copies the current context, so keep the token bound
+                # in this coroutine before each threaded Supabase call.
+                db_client.set_access_token(token)
 
-                data = await file.read()
-                dest = rx.get_upload_dir() / file.filename
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(data)
-
-                self.upload_status = "Uploading " + label + " to storage" + counter
-                yield
+                async with self:
+                    self.upload_status = "Uploading " + label + " to storage" + counter
 
                 doc_res = await asyncio.to_thread(
                     document_service.upload_document,
-                    file_path=str(dest),
-                    title=deck_title,
-                    document_type=self.upload_document_type,
+                    file_path=dest,
+                    title=item["deck_title"],
+                    document_type=doc_type,
                     subject=slug,
                     semester=semester_number,
                 )
 
-                self.upload_status = (
-                    "Extracting text and building embeddings for "
-                    + label + counter + " - this is the slow step"
-                )
-                yield
+                async with self:
+                    self.upload_status = (
+                        "Extracting text and building embeddings for "
+                        + label + counter + " - this is the slow step"
+                    )
 
                 await asyncio.to_thread(
                     ingestion_service.ingest_document,
-                    pdf_path=str(dest),
-                    document_type=self.upload_document_type,
+                    pdf_path=dest,
+                    document_type=doc_type,
                     subject=slug,
                     semester=semester_number,
                 )
 
-                # Slides/textbook content also backs the resources-browsing
-                # UI and the quiz/flashcard/notes unit picker -- neither of
-                # those read from Qdrant, so sync them here too. Syllabus
-                # docs skip this: they go through syllabus_service instead,
-                # which extracts a real "Unit N:" outline rather than
-                # inferring one from running headers.
                 if (
-                    self.upload_document_type in ("slides", "textbook")
+                    doc_type in ("slides", "textbook")
                     and doc_res.get("success")
                     and doc_res.get("document_id")
                 ):
-                    self.upload_status = "Indexing slides for " + label + counter
-                    yield
+                    async with self:
+                        self.upload_status = "Indexing slides for " + label + counter
 
                     existing_subject = subjects_repo.get_subject(
                         semester=semester_number, slug=slug
@@ -1532,34 +1567,33 @@ class UserState(rx.State):
                         existing_subject.get("subject_name")
                         if existing_subject
                         else None
-                    ) or self.upload_subject
+                    ) or subject_name_input
 
                     await asyncio.to_thread(
                         catalog_service.sync_catalog,
-                        pdf_path=str(dest),
+                        pdf_path=dest,
                         document_uuid=doc_res["document_id"],
                         subject_name=subject_name,
                         semester=semester_number,
                     )
 
-                self.upload_done_count = index
-                yield
+                async with self:
+                    self.upload_done_count = index
         except Exception as e:
-            self.upload_loading = False
-            self.upload_status = ""
-            self.upload_error = str(e)
+            async with self:
+                self.upload_loading = False
+                self.upload_status = ""
+                self.upload_error = str(e)
             return
 
-        self.upload_loading = False
-        self.upload_status = ""
-        self.upload_success = True
-        self.upload_title = ""
-        self.upload_done_count = 0
-        self.upload_total_count = 0
-        # Reset the dropzone two ways so a second upload never needs a reload:
-        #  1. clear_selected_files empties Reflex's file store for this id.
-        #  2. bumping the widget key remounts the whole <Upload> so
-        #     react-dropzone starts fresh -- covers cases where (1) alone
-        #     leaves the browser widget holding the last file.
-        self.upload_widget_key += 1
+        async with self:
+            self.upload_loading = False
+            self.upload_status = ""
+            self.upload_success = True
+            self.upload_title = ""
+            self.upload_done_count = 0
+            self.upload_total_count = 0
+            # Reset the dropzone: bump the widget key so <Upload> remounts.
+            self.upload_widget_key += 1
+        yield rx.clear_selected_files("document_upload")
         yield rx.clear_selected_files("document_upload")
