@@ -112,32 +112,49 @@ def slides_viewer_page() -> rx.Component:
             # Slide area
             rx.box(
                 rx.cond(
-                    ResourceState.pdf_url != "",
-                    rx.el.iframe(
-                        src=ResourceState.pdf_url,
-                        width="100%",
-                        height="calc(100vh - 118px)",
-                        style={"border": "none"},
-                    ),
+                    ResourceState.subject_loading,
                     rx.center(
                         rx.vstack(
-                            rx.icon("file-x", size=30, color=t.TEXT_MUTED),
+                            rx.spinner(color=t.ACCENT, size="3"),
                             rx.text(
-                                "No slide PDF available for this subject yet.",
-                                color=t.TEXT_BODY,
-                                font_size="15px",
-                                font_weight="500",
-                            ),
-                            rx.text(
-                                "You can still use the AI tutor on the right.",
+                                "Loading slides…",
                                 color=t.TEXT_MUTED,
                                 font_size="13px",
                             ),
-                            spacing="2",
+                            spacing="3",
                             align_items="center",
                         ),
                         width="100%",
                         height="calc(100vh - 118px)",
+                    ),
+                    rx.cond(
+                        ResourceState.pdf_url != "",
+                        rx.el.iframe(
+                            src=ResourceState.pdf_url,
+                            width="100%",
+                            height="calc(100vh - 118px)",
+                            style={"border": "none"},
+                        ),
+                        rx.center(
+                            rx.vstack(
+                                rx.icon("file-x", size=30, color=t.TEXT_MUTED),
+                                rx.text(
+                                    "No slide PDF available for this subject yet.",
+                                    color=t.TEXT_BODY,
+                                    font_size="15px",
+                                    font_weight="500",
+                                ),
+                                rx.text(
+                                    "You can still use the AI tutor on the right.",
+                                    color=t.TEXT_MUTED,
+                                    font_size="13px",
+                                ),
+                                spacing="2",
+                                align_items="center",
+                            ),
+                            width="100%",
+                            height="calc(100vh - 118px)",
+                        ),
                     ),
                 ),
                 flex="1",

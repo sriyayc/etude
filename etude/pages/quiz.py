@@ -48,12 +48,6 @@ def unit_card(unit: rx.Var) -> rx.Component:
             margin_top="12px",
             line_height="1.25",
         ),
-        rx.text(
-            unit["topic_count"].to_string() + " slides",
-            color=t.TEXT_MUTED,
-            font_size="13px",
-            margin_top="12px",
-        ),
         on_click=QuizState.generate_quiz(unit["unit_number"], unit["unit_title"], unit["document_id"]),
         hover=True,
         cursor="pointer",

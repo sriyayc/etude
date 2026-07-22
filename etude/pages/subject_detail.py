@@ -64,7 +64,11 @@ def subject_detail_page():
         ui.container(
             rx.vstack(
                 ui.heading(
-                    ResourceState.current_subject["subject_name"],
+                    rx.cond(
+                        ResourceState.subject_loading,
+                        "Loading…",
+                        ResourceState.current_subject["subject_name"],
+                    ),
                     size="40px",
                     margin_top="6px",
                 ),
@@ -83,15 +87,6 @@ def subject_detail_page():
                             ResourceState.current_subject["syllabus_status"] == "current",
                             t.SUCCESS, t.TEXT_MUTED,
                         ),
-                    ),
-                    ui.badge(
-                        rx.cond(
-                            ResourceState.current_subject["slide_count"].to(int) > 0,
-                            ResourceState.current_subject["slide_count"].to_string()
-                            + " slides",
-                            "syllabus only",
-                        ),
-                        tone="muted",
                     ),
                     ui.badge("AI tutor grounded", tone="accent"),
                     spacing="2",

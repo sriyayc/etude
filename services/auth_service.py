@@ -134,20 +134,26 @@ def signup_admin(
 
 def login(srn: str, password: str) -> dict:
     """
-    Login by SRN. Uses a Supabase RPC function to look up the email
-    from the SRN (direct table read blocked by RLS before auth),
-    then authenticates with Supabase Auth.
+    Login by SRN *or* email. If the identifier contains "@" it's treated as an
+    email and used directly; otherwise it's an SRN, resolved to an email via a
+    Supabase RPC (direct table read is blocked by RLS before auth).
     """
-    # get_email_by_srn is only granted to service_role (SRNs are
-    # sequential/enumerable, so it must never be reachable with the public
-    # anon key) -- use the service client here, not the user-facing one.
-    email_response = get_service_client().rpc(
-        "get_email_by_srn", {"p_srn": srn}
-    ).execute()
-    email = email_response.data
+    identifier = (srn or "").strip()
+
+    if "@" in identifier:
+        email = identifier.lower()
+    else:
+        # get_email_by_srn is only granted to service_role (SRNs are
+        # sequential/enumerable, so it must never be reachable with the public
+        # anon key) -- use the service client here, not the user-facing one.
+        # The RPC normalizes case/whitespace on both sides.
+        email_response = get_service_client().rpc(
+            "get_email_by_srn", {"p_srn": identifier}
+        ).execute()
+        email = email_response.data
 
     if not email:
-        raise Exception("No account found for that SRN")
+        raise Exception("No account found for that SRN or email")
 
     # Sign in on a throwaway ANON client. Signing in on a shared client would
     # store this user's session on it and hand that identity to every other

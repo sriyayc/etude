@@ -98,8 +98,8 @@ def form_panel() -> rx.Component:
             ),
             rx.vstack(
                 field(
-                    "SRN", "Format: PES2UG24CS510",
-                    placeholder="PES2UG24CS510",
+                    "SRN or email", "e.g. PES2UG24CS510 or you@gmail.com",
+                    placeholder="PES2UG24CS510 or you@gmail.com",
                     value=UserState.login_srn,
                     on_change=UserState.set_login_srn,
                     on_key_down=UserState.handle_login_key,

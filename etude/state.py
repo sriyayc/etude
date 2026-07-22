@@ -2,6 +2,7 @@
 
 import reflex as rx
 import asyncio
+import re
 from datetime import datetime, timezone
 from typing import TypedDict
 
@@ -162,6 +163,11 @@ class ResourceState(rx.State):
     slide_decks: list[dict] = []
     selected_deck_id: str = ""
 
+    # True while a subject/slides page is fetching. Lets the UI show a loading
+    # state instead of flashing stale data or a premature "Subject not found"
+    # when you click between subjects quickly.
+    subject_loading: bool = False
+
     current_subject: dict = {
         "slug": "",
         "subject_name": "Subject",
@@ -297,6 +303,7 @@ class ResourceState(rx.State):
     @rx.event
     async def load_subject(self):
         """Load the subject selected by the dynamic route."""
+        self.subject_loading = True
         await bind_session(self)
 
         self.resource_error = ""
@@ -325,6 +332,7 @@ class ResourceState(rx.State):
                 "page_count": 0,
                 "document_id": "",
             }
+            self.subject_loading = False
             return
 
         self.current_subject = {
@@ -356,6 +364,7 @@ class ResourceState(rx.State):
                 subject.get("slides_document_id") or ""
             ),
         }
+        self.subject_loading = False
 
     # ---------------------------------------------------------
     # Slide events
@@ -364,6 +373,7 @@ class ResourceState(rx.State):
     @rx.event
     async def load_slides(self):
         """Load the active subject and its slides."""
+        self.subject_loading = True
         await bind_session(self)
 
         self.resource_error = ""
@@ -384,6 +394,7 @@ class ResourceState(rx.State):
         except Exception as exc:
             self.resource_error = str(exc)
             self.slides = []
+            self.subject_loading = False
             return
 
         if not subject:
@@ -397,6 +408,7 @@ class ResourceState(rx.State):
                 "page_count": 0,
                 "document_id": "",
             }
+            self.subject_loading = False
             return
 
         self.current_subject = {
@@ -455,6 +467,7 @@ class ResourceState(rx.State):
             self.slides = []
             self.selected_deck_id = ""
             self.resource_error = "This subject has no slide decks uploaded yet."
+            self.subject_loading = False
             return
 
         deck_ids = [d["id"] for d in self.slide_decks]
@@ -462,6 +475,7 @@ class ResourceState(rx.State):
             self.selected_deck_id = deck_ids[0]
 
         await self._load_deck(self.selected_deck_id)
+        self.subject_loading = False
 
     @rx.event
     async def select_deck(self, deck_id: str):
@@ -1193,6 +1207,14 @@ class UserState(rx.State):
         email = self.signup_email.strip()
         if "@" not in email or "." not in email.split("@")[-1]:
             self.signup_error = "Enter a valid email address."
+            return
+
+        # SRN must look like PES2UG24CS521: PES, one digit, UG, then 7
+        # alphanumerics. Validating here stops malformed SRNs that would later
+        # make sign-in impossible.
+        srn_norm = self.signup_srn.strip().upper()
+        if not re.match(r"^PES\dUG[A-Z0-9]{7}$", srn_norm):
+            self.signup_error = "SRN must look like PES2UG24CS521."
             return
 
         if len(self.signup_password) < 8:

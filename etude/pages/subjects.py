@@ -59,23 +59,15 @@ def subject_card(subject: rx.Var) -> rx.Component:
                 margin_top="4px",
             ),
             rx.hstack(
-                rx.hstack(
-                    rx.icon("layers", size=14, color=t.TEXT_MUTED),
-                    rx.text(
-                        subject["slide_count"], " slides",
-                        color=t.TEXT_MUTED, font_size="13px",
-                    ),
-                    spacing="1", align_items="center",
+                rx.text(
+                    "Open",
+                    color=t.ACCENT_STRONG,
+                    font_size="13px",
+                    font_weight="600",
                 ),
-                rx.hstack(
-                    rx.icon("file-text", size=14, color=t.TEXT_MUTED),
-                    rx.text(
-                        subject["page_count"], " pages",
-                        color=t.TEXT_MUTED, font_size="13px",
-                    ),
-                    spacing="1", align_items="center",
-                ),
-                spacing="4",
+                rx.icon("arrow-right", size=15, color=t.ACCENT_STRONG),
+                spacing="1",
+                align_items="center",
                 margin_top="18px",
                 padding_top="16px",
                 border_top=f"1px solid {t.BORDER}",
