@@ -1047,6 +1047,11 @@ class UserState(rx.State):
     upload_status: str = ""
     upload_done_count: int = 0
     upload_total_count: int = 0
+    # Bumped after every successful upload. The upload widget is keyed on this,
+    # so it fully remounts (react-dropzone reset from scratch) between uploads
+    # -- a belt-and-suspenders reset on top of clear_selected_files so a second
+    # upload never requires a page reload.
+    upload_widget_key: int = 0
 
     @rx.var
     def upload_percent(self) -> int:
@@ -1551,8 +1556,10 @@ class UserState(rx.State):
         self.upload_title = ""
         self.upload_done_count = 0
         self.upload_total_count = 0
-        # Reset the dropzone. Without this the previous file stays selected in
-        # the widget, so the next upload re-sends it (or the box looks stuck)
-        # and you have to reload the page to pick another -- which is exactly
-        # what made bulk uploading painful.
+        # Reset the dropzone two ways so a second upload never needs a reload:
+        #  1. clear_selected_files empties Reflex's file store for this id.
+        #  2. bumping the widget key remounts the whole <Upload> so
+        #     react-dropzone starts fresh -- covers cases where (1) alone
+        #     leaves the browser widget holding the last file.
+        self.upload_widget_key += 1
         yield rx.clear_selected_files("document_upload")

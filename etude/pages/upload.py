@@ -189,6 +189,10 @@ def upload_page():
                             spacing="3",
                         ),
                         id=UPLOAD_ID,
+                        # Remount the widget after each successful upload so
+                        # react-dropzone fully resets -- no reload needed to
+                        # queue the next file.
+                        key="upload-" + UserState.upload_widget_key.to_string(),
                         accept={"application/pdf": [".pdf"]},
                         multiple=True,
                         max_files=50,
